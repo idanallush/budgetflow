@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { eq, isNull, and } from 'drizzle-orm'
-import { getDb } from '../../../src/lib/db'
-import { campaigns, budgetPeriods, changelog } from '../../../src/lib/schema'
-import { json, error, methodNotAllowed, requireAuth } from '../../../src/lib/api-helpers'
+import { getDb } from '../../lib/db'
+import { campaigns, budgetPeriods, changelog } from '../../lib/schema'
+import { json, error, methodNotAllowed, requireAuth } from '../../lib/api-helpers'
 
 const statusLabels: Record<string, string> = {
   active: 'פעיל',

@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { eq, isNull, and } from 'drizzle-orm'
-import { getDb } from '../../../src/lib/db'
-import { budgetPeriods, changelog } from '../../../src/lib/schema'
-import { json, error, methodNotAllowed, requireAuth } from '../../../src/lib/api-helpers'
+import { getDb } from '../../lib/db'
+import { budgetPeriods, changelog } from '../../lib/schema'
+import { json, error, methodNotAllowed, requireAuth } from '../../lib/api-helpers'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return methodNotAllowed(res)

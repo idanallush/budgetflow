@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { eq } from 'drizzle-orm'
-import { getDb } from '../../src/lib/db'
-import { campaigns } from '../../src/lib/schema'
-import { json, error, methodNotAllowed, requireAuth } from '../../src/lib/api-helpers'
+import { getDb } from '../lib/db'
+import { campaigns } from '../lib/schema'
+import { json, error, methodNotAllowed, requireAuth } from '../lib/api-helpers'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = requireAuth(req, res)
