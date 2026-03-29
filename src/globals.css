@@ -226,7 +226,7 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 30;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,6 +240,8 @@ body {
   padding: 24px;
   max-width: 560px;
   width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
 
@@ -276,7 +278,7 @@ body {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 40;
+  z-index: 60;
   padding: 10px 20px;
   background: var(--color-glass-bg-elevated);
   backdrop-filter: blur(20px);
