@@ -2,23 +2,24 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowRight, Plus, History, Copy } from 'lucide-react'
 import { useClient } from '@/hooks/useClients'
-import { useCampaigns } from '@/hooks/useCampaigns'
+import { useCampaigns, useUpdateCampaignStatus } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { Button } from '@/components/ui/Button'
 import { MetricCard } from '@/components/ui/MetricCard'
 import { SkeletonCard } from '@/components/ui/Skeleton'
-import { CampaignTable } from '@/components/CampaignTable'
+import { CampaignTable, NoCampaignsState } from '@/components/CampaignTable'
 import { CampaignModal } from '@/components/CampaignModal'
 import { BudgetEditDialog } from '@/components/BudgetEditDialog'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { toast } from '@/components/ui/Toast'
-import { formatCurrency } from '@/lib/format'
-import type { CampaignWithBudget } from '@/types'
+import { formatCurrency, todayISO } from '@/lib/format'
+import type { CampaignWithBudget, CampaignStatus } from '@/types'
 
 export const ClientView = () => {
   const { slug } = useParams<{ slug: string }>()
   const { data: client, isLoading: clientLoading } = useClient(slug ?? '')
   const { data: campaigns, isLoading: campaignsLoading } = useCampaigns(client?.id ?? '')
+  const updateStatus = useUpdateCampaignStatus()
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithBudget | null>(null)
@@ -36,6 +37,25 @@ export const ClientView = () => {
     .reduce((sum, c) => sum + c.monthly_forecast, 0) ?? 0
   const totalOriginal = campaigns?.reduce((sum, c) => sum + c.original_plan, 0) ?? 0
   const totalVariance = totalForecast - totalOriginal
+  const hasCampaigns = campaigns && campaigns.length > 0
+  const hasFb = campaigns?.some((c) => c.platform === 'facebook')
+  const hasGoogle = campaigns?.some((c) => c.platform === 'google')
+
+  const handleStatusChange = async (campaignId: string, status: CampaignStatus) => {
+    if (!client) return
+    try {
+      await updateStatus.mutateAsync({
+        campaign_id: campaignId,
+        client_id: client.id,
+        status,
+        end_date: status === 'stopped' ? todayISO() : undefined,
+      })
+      const labels: Record<CampaignStatus, string> = { active: 'פעיל', paused: 'מושהה', stopped: 'הופסק' }
+      toast.success(`סטטוס שונה ל${labels[status]}`)
+    } catch {
+      toast.error('שגיאה בשינוי סטטוס')
+    }
+  }
 
   const copyShareLink = () => {
     if (!client) return
@@ -56,7 +76,7 @@ export const ClientView = () => {
   return (
     <div className="flex flex-col gap-6 animate-enter">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link to="/" className="btn-icon">
             <ArrowRight size={20} />
@@ -74,7 +94,7 @@ export const ClientView = () => {
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={() => setShowClientChangelog(true)}>
             <History size={16} />
-            היסטוריה
+            היסטוריית שינויים
           </Button>
           <Button variant="ghost" onClick={copyShareLink}>
             <Copy size={16} />
@@ -88,12 +108,14 @@ export const ClientView = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <MetricCard label="תקציב יומי" value={formatCurrency(totalDaily)} />
-        <MetricCard label="תחזית חודשית" value={formatCurrency(totalForecast)} />
-        <MetricCard label="Meta" value={formatCurrency(fbForecast)} />
-        <MetricCard label="Google" value={formatCurrency(googleForecast)} />
-      </div>
+      {hasCampaigns && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <MetricCard label="תקציב יומי" value={formatCurrency(totalDaily)} />
+          <MetricCard label="צפי חודשי" value={formatCurrency(totalForecast)} />
+          <MetricCard label="Meta" value={formatCurrency(fbForecast)} />
+          <MetricCard label="Google" value={formatCurrency(googleForecast)} />
+        </div>
+      )}
 
       {/* Campaign Tables */}
       <GlassPanel className="p-6">
@@ -102,36 +124,44 @@ export const ClientView = () => {
             <SkeletonCard />
             <SkeletonCard />
           </div>
+        ) : !hasCampaigns ? (
+          <NoCampaignsState onAdd={() => setShowAddModal(true)} />
         ) : (
           <>
-            <CampaignTable
-              campaigns={campaigns ?? []}
-              platform="facebook"
-              onEditCampaign={setEditingCampaign}
-              onViewChangelog={setChangelogCampaignId}
-              onBudgetEdit={setBudgetEditCampaign}
-            />
+            {hasFb && (
+              <CampaignTable
+                campaigns={campaigns}
+                platform="facebook"
+                onEditCampaign={setEditingCampaign}
+                onViewChangelog={setChangelogCampaignId}
+                onBudgetEdit={setBudgetEditCampaign}
+                onStatusChange={handleStatusChange}
+              />
+            )}
 
-            <CampaignTable
-              campaigns={campaigns ?? []}
-              platform="google"
-              onEditCampaign={setEditingCampaign}
-              onViewChangelog={setChangelogCampaignId}
-              onBudgetEdit={setBudgetEditCampaign}
-            />
+            {hasGoogle && (
+              <CampaignTable
+                campaigns={campaigns}
+                platform="google"
+                onEditCampaign={setEditingCampaign}
+                onViewChangelog={setChangelogCampaignId}
+                onBudgetEdit={setBudgetEditCampaign}
+                onStatusChange={handleStatusChange}
+              />
+            )}
 
-            {/* Grand Total */}
-            {campaigns && campaigns.length > 0 && (
-              <div className="glass-card p-5 mt-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">סה״כ כללי</span>
-                  <div className="flex items-center gap-6">
+            {/* Grand Total (only if both platforms exist) */}
+            {hasFb && hasGoogle && (
+              <div className="glass-card p-5">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <span className="font-semibold text-lg">סה״כ כללי</span>
+                  <div className="flex items-center gap-6 flex-wrap">
                     <div className="text-end">
                       <p className="text-xs text-text-muted">יומי</p>
                       <p className="font-semibold">{formatCurrency(totalDaily)}</p>
                     </div>
                     <div className="text-end">
-                      <p className="text-xs text-text-muted">תחזית חודשית</p>
+                      <p className="text-xs text-text-muted">צפי חודשי</p>
                       <p className="text-xl font-semibold text-accent">{formatCurrency(totalForecast)}</p>
                     </div>
                     <div className="text-end">
@@ -140,7 +170,7 @@ export const ClientView = () => {
                     </div>
                     {totalVariance !== 0 && (
                       <div className="text-end">
-                        <p className="text-xs text-text-muted">סטייה</p>
+                        <p className="text-xs text-text-muted">הפרש</p>
                         <span className={`chip text-xs ${totalVariance > 0 ? 'status-stopped' : 'status-active'}`}>
                           {totalVariance > 0 ? '+' : ''}{formatCurrency(totalVariance)}
                         </span>
@@ -154,7 +184,7 @@ export const ClientView = () => {
         )}
       </GlassPanel>
 
-      {/* Modals */}
+      {/* Modals & Panels */}
       <CampaignModal
         open={showAddModal || !!editingCampaign}
         onClose={() => {
@@ -180,7 +210,7 @@ export const ClientView = () => {
         }}
         campaignId={changelogCampaignId ?? undefined}
         clientId={showClientChangelog ? client?.id : undefined}
-        title={showClientChangelog ? `היסטוריה — ${client?.name}` : undefined}
+        title={showClientChangelog ? `היסטוריית שינויים — ${client?.name}` : undefined}
       />
     </div>
   )

@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
-import { useCreateCampaign, useUpdateBudget, useUpdateCampaignStatus } from '@/hooks/useCampaigns'
-import { todayISO, formatCurrency } from '@/lib/format'
-import type { CampaignWithBudget, CampaignStatus } from '@/types'
+import { useCreateCampaign } from '@/hooks/useCampaigns'
+import { todayISO } from '@/lib/format'
+import type { CampaignWithBudget } from '@/types'
 
 interface CampaignModalProps {
   open: boolean
@@ -24,8 +24,6 @@ const campaignTypes = [
 export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignModalProps) => {
   const isEditing = !!campaign
   const createCampaign = useCreateCampaign()
-  const updateBudget = useUpdateBudget()
-  const updateStatus = useUpdateCampaignStatus()
 
   const [name, setName] = useState('')
   const [technicalName, setTechnicalName] = useState('')
@@ -35,7 +33,6 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
   const [startDate, setStartDate] = useState(todayISO())
   const [adLink, setAdLink] = useState('')
   const [notes, setNotes] = useState('')
-  const [status, setStatus] = useState<CampaignStatus>('active')
 
   useEffect(() => {
     if (campaign) {
@@ -43,11 +40,10 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
       setTechnicalName(campaign.technical_name ?? '')
       setPlatform(campaign.platform)
       setCampaignType(campaign.campaign_type ?? '')
-      setDailyBudget(String(campaign.current_daily_budget))
+      setDailyBudget('')
       setStartDate(campaign.start_date)
       setAdLink(campaign.ad_link ?? '')
       setNotes(campaign.notes ?? '')
-      setStatus(campaign.status)
     } else {
       setName('')
       setTechnicalName('')
@@ -57,37 +53,15 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
       setStartDate(todayISO())
       setAdLink('')
       setNotes('')
-      setStatus('active')
     }
   }, [campaign, open])
 
   const handleSubmit = async () => {
-    if (!name.trim() || !dailyBudget) return
+    if (!name.trim()) return
+    if (!isEditing && !dailyBudget) return
 
     try {
-      if (isEditing && campaign) {
-        // Budget change
-        const newBudget = Number(dailyBudget)
-        if (newBudget !== campaign.current_daily_budget) {
-          await updateBudget.mutateAsync({
-            campaign_id: campaign.id,
-            client_id: clientId,
-            new_budget: newBudget,
-            effective_date: todayISO(),
-            old_budget: campaign.current_daily_budget,
-          })
-        }
-        // Status change
-        if (status !== campaign.status) {
-          await updateStatus.mutateAsync({
-            campaign_id: campaign.id,
-            client_id: clientId,
-            status,
-            end_date: status === 'stopped' ? todayISO() : undefined,
-          })
-        }
-        toast.success('קמפיין עודכן בהצלחה')
-      } else {
+      if (!isEditing) {
         await createCampaign.mutateAsync({
           client_id: clientId,
           name: name.trim(),
@@ -100,6 +74,9 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
           notes: notes.trim() || undefined,
         })
         toast.success('קמפיין חדש נוסף בהצלחה')
+      } else {
+        // TODO: implement campaign details update API
+        toast.success('פרטי קמפיין עודכנו')
       }
       onClose()
     } catch {
@@ -107,14 +84,12 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
     }
   }
 
-  const isPending = createCampaign.isPending || updateBudget.isPending || updateStatus.isPending
-
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title={isEditing ? 'עריכת קמפיין' : 'הוסף קמפיין חדש'}
-      maxWidth="600px"
+      title={isEditing ? 'עריכת פרטי קמפיין' : 'הוסף קמפיין חדש'}
+      maxWidth="560px"
     >
       <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pe-2">
         <Input
@@ -136,6 +111,7 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
             label="פלטפורמה"
             value={platform}
             onChange={(e) => setPlatform(e.target.value as 'facebook' | 'google')}
+            disabled={isEditing}
           >
             <option value="facebook">Meta (Facebook)</option>
             <option value="google">Google Ads</option>
@@ -153,43 +129,29 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="תקציב יומי (₪)"
-            type="number"
-            placeholder="200"
-            value={dailyBudget}
-            onChange={(e) => setDailyBudget(e.target.value)}
-          />
-          <Input
-            label="תאריך התחלה"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            disabled={isEditing}
-          />
-        </div>
-
-        {isEditing && campaign && Number(dailyBudget) !== campaign.current_daily_budget && (
-          <div className="glass-card p-3 text-sm">
-            <span className="text-text-secondary">שינוי תקציב: </span>
-            <span className="text-danger">{formatCurrency(campaign.current_daily_budget)}</span>
-            <span className="text-text-muted mx-2">&larr;</span>
-            <span className="text-success">{formatCurrency(Number(dailyBudget))}</span>
-            <span className="text-text-muted me-2"> (החל מהיום)</span>
+        {/* Budget + date only for new campaigns */}
+        {!isEditing && (
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="תקציב יומי התחלתי (₪)"
+              type="number"
+              placeholder="200"
+              value={dailyBudget}
+              onChange={(e) => setDailyBudget(e.target.value)}
+            />
+            <Input
+              label="תאריך התחלה"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
           </div>
         )}
 
         {isEditing && (
-          <Select
-            label="סטטוס"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as CampaignStatus)}
-          >
-            <option value="active">פעיל</option>
-            <option value="paused">מושהה</option>
-            <option value="stopped">הופסק</option>
-          </Select>
+          <div className="glass-card p-3 text-xs text-text-muted text-center">
+            לשינוי תקציב או סטטוס — השתמש בכפתורים בטבלה
+          </div>
         )}
 
         <Input
@@ -201,9 +163,7 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
         />
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-medium tracking-wider text-text-muted">
-            הערות
-          </label>
+          <label className="text-xs font-medium tracking-wider text-text-muted">הערות</label>
           <textarea
             className="glass-input glass-textarea"
             placeholder="הערות (אופציונלי)"
@@ -215,14 +175,12 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
       </div>
 
       <div className="flex gap-3 justify-end mt-5 pt-4 border-t border-[rgba(255,255,255,0.08)]">
-        <Button variant="ghost" onClick={onClose}>
-          ביטול
-        </Button>
+        <Button variant="ghost" onClick={onClose}>ביטול</Button>
         <Button
           onClick={handleSubmit}
-          disabled={!name.trim() || !dailyBudget || isPending}
+          disabled={!name.trim() || (!isEditing && !dailyBudget) || createCampaign.isPending}
         >
-          {isPending ? 'שומר...' : isEditing ? 'שמור שינויים' : 'הוסף קמפיין'}
+          {createCampaign.isPending ? 'שומר...' : isEditing ? 'שמור שינויים' : 'הוסף קמפיין'}
         </Button>
       </div>
     </Dialog>

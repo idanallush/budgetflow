@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { DollarSign, ArrowLeft } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { useUpdateBudget } from '@/hooks/useCampaigns'
-import { todayISO, formatCurrency } from '@/lib/format'
+import { todayISO, formatCurrency, formatDateFull } from '@/lib/format'
 import type { CampaignWithBudget } from '@/types'
 
 interface BudgetEditDialogProps {
@@ -19,20 +20,31 @@ export const BudgetEditDialog = ({ open, onClose, campaign, clientId }: BudgetEd
   const [newBudget, setNewBudget] = useState('')
   const [effectiveDate, setEffectiveDate] = useState(todayISO())
 
+  // Reset form when opening
+  useEffect(() => {
+    if (open) {
+      setNewBudget('')
+      setEffectiveDate(todayISO())
+    }
+  }, [open])
+
   const handleSubmit = async () => {
     if (!campaign || !newBudget) return
+    const amount = Number(newBudget)
+    if (amount <= 0 || amount === campaign.current_daily_budget) return
 
     try {
       await updateBudget.mutateAsync({
         campaign_id: campaign.id,
         client_id: clientId,
-        new_budget: Number(newBudget),
+        new_budget: amount,
         effective_date: effectiveDate,
         old_budget: campaign.current_daily_budget,
       })
-      toast.success('תקציב עודכן בהצלחה')
+      toast.success(
+        `התקציב שונה מ-${formatCurrency(campaign.current_daily_budget)} ל-${formatCurrency(amount)}, החל מ-${formatDateFull(effectiveDate)}`
+      )
       onClose()
-      setNewBudget('')
     } catch {
       toast.error('שגיאה בעדכון תקציב')
     }
@@ -40,24 +52,39 @@ export const BudgetEditDialog = ({ open, onClose, campaign, clientId }: BudgetEd
 
   if (!campaign) return null
 
+  const hasChange = newBudget && Number(newBudget) > 0 && Number(newBudget) !== campaign.current_daily_budget
+
   return (
-    <Dialog open={open} onClose={onClose} title="עדכון תקציב יומי" maxWidth="400px">
-      <div className="flex flex-col gap-4">
+    <Dialog open={open} onClose={onClose} title="שינוי תקציב" maxWidth="420px">
+      <div className="flex flex-col gap-5">
+        {/* Campaign name + current budget */}
         <div className="glass-card p-4">
-          <p className="text-sm text-text-secondary mb-1">{campaign.name}</p>
-          <p className="text-lg font-semibold">
-            תקציב נוכחי: {formatCurrency(campaign.current_daily_budget)}
-          </p>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-lg bg-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0">
+              <DollarSign size={18} className="text-accent" />
+            </div>
+            <div>
+              <p className="font-medium text-sm">{campaign.name}</p>
+              <p className="text-xs text-text-muted">{campaign.campaign_type ?? campaign.platform}</p>
+            </div>
+          </div>
+          <div className="text-center py-2">
+            <p className="text-xs text-text-muted mb-1">תקציב נוכחי</p>
+            <p className="text-2xl font-semibold">{formatCurrency(campaign.current_daily_budget)} <span className="text-sm text-text-secondary font-normal">ליום</span></p>
+          </div>
         </div>
 
+        {/* New budget input */}
         <Input
           label="תקציב יומי חדש (₪)"
           type="number"
-          placeholder="300"
+          placeholder={String(campaign.current_daily_budget)}
           value={newBudget}
           onChange={(e) => setNewBudget(e.target.value)}
+          min={0}
         />
 
+        {/* Effective date */}
         <Input
           label="החל מתאריך"
           type="date"
@@ -65,21 +92,29 @@ export const BudgetEditDialog = ({ open, onClose, campaign, clientId }: BudgetEd
           onChange={(e) => setEffectiveDate(e.target.value)}
         />
 
-        {newBudget && Number(newBudget) !== campaign.current_daily_budget && (
-          <div className="glass-card p-3 text-sm text-center">
-            <span className="text-danger">{formatCurrency(campaign.current_daily_budget)}</span>
-            <span className="text-text-muted mx-3">&larr;</span>
-            <span className="text-success">{formatCurrency(Number(newBudget))}</span>
+        {/* Change preview */}
+        {hasChange && (
+          <div className="glass-card p-4 flex items-center justify-center gap-4">
+            <div className="text-center">
+              <p className="text-xs text-text-muted mb-1">קודם</p>
+              <p className="font-semibold text-text-secondary">{formatCurrency(campaign.current_daily_budget)}</p>
+            </div>
+            <ArrowLeft size={18} className="text-accent" />
+            <div className="text-center">
+              <p className="text-xs text-text-muted mb-1">חדש</p>
+              <p className="font-semibold text-accent">{formatCurrency(Number(newBudget))}</p>
+            </div>
           </div>
         )}
 
-        <div className="flex gap-3 justify-end mt-2">
+        {/* Actions */}
+        <div className="flex gap-3 justify-end pt-2 border-t border-[rgba(255,255,255,0.08)]">
           <Button variant="ghost" onClick={onClose}>ביטול</Button>
           <Button
             onClick={handleSubmit}
-            disabled={!newBudget || Number(newBudget) === campaign.current_daily_budget || updateBudget.isPending}
+            disabled={!hasChange || updateBudget.isPending}
           >
-            {updateBudget.isPending ? 'מעדכן...' : 'עדכן תקציב'}
+            {updateBudget.isPending ? 'מעדכן...' : 'שנה תקציב'}
           </Button>
         </div>
       </div>
