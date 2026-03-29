@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { verifyToken, type JwtPayload } from './auth'
+import { verifyToken, type JwtPayload } from './auth.js'
 
 export const json = (res: VercelResponse, data: unknown, status = 200) => {
   return res.status(status).json(data)
