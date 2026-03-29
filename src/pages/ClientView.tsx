@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { ArrowRight, Plus, History, Copy, ToggleLeft, ToggleRight, Pencil, Check, X, Wallet } from 'lucide-react'
-import { useClient } from '@/hooks/useClients'
-import { useCampaigns, useUpdateCampaignStatus } from '@/hooks/useCampaigns'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, Plus, History, Copy, ToggleLeft, ToggleRight, Pencil, Check, X, Wallet, Trash2 } from 'lucide-react'
+import { useClient, useDeleteClient } from '@/hooks/useClients'
+import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { Button } from '@/components/ui/Button'
 import { MetricCard } from '@/components/ui/MetricCard'
@@ -12,6 +12,7 @@ import { CampaignModal } from '@/components/CampaignModal'
 import { BudgetEditDialog } from '@/components/BudgetEditDialog'
 import { EndDateEditDialog } from '@/components/EndDateEditDialog'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { toast } from '@/components/ui/Toast'
 import { formatCurrency, todayISO } from '@/lib/format'
 import type { CampaignWithBudget, CampaignStatus } from '@/types'
@@ -28,9 +29,12 @@ const getMonthlyBudgetKey = (clientId: string) => {
 
 export const ClientView = () => {
   const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
   const { data: client, isLoading: clientLoading } = useClient(slug ?? '')
   const { data: campaigns, isLoading: campaignsLoading } = useCampaigns(client?.id ?? '')
   const updateStatus = useUpdateCampaignStatus()
+  const deleteCampaign = useDeleteCampaign()
+  const deleteClient = useDeleteClient()
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithBudget | null>(null)
@@ -39,6 +43,8 @@ export const ClientView = () => {
   const [showClientChangelog, setShowClientChangelog] = useState(false)
   const [showTechnicalName, setShowTechnicalName] = useState(false)
   const [endDateCampaign, setEndDateCampaign] = useState<CampaignWithBudget | null>(null)
+  const [deletingCampaign, setDeletingCampaign] = useState<CampaignWithBudget | null>(null)
+  const [showDeleteClient, setShowDeleteClient] = useState(false)
 
   // Monthly budget goal (persisted in localStorage per client+month)
   const [monthlyBudgetGoal, setMonthlyBudgetGoal] = useState<number | null>(null)
@@ -99,6 +105,28 @@ export const ClientView = () => {
     toast.success('קישור שיתוף הועתק')
   }
 
+  const handleDeleteCampaign = async () => {
+    if (!deletingCampaign || !client) return
+    try {
+      await deleteCampaign.mutateAsync({ campaign_id: deletingCampaign.id, client_id: client.id })
+      toast.success(`הקמפיין "${deletingCampaign.name}" נמחק`)
+      setDeletingCampaign(null)
+    } catch {
+      toast.error('שגיאה במחיקת קמפיין')
+    }
+  }
+
+  const handleDeleteClient = async () => {
+    if (!client) return
+    try {
+      await deleteClient.mutateAsync(client.slug)
+      toast.success(`הלקוח "${client.name}" נמחק`)
+      navigate('/')
+    } catch {
+      toast.error('שגיאה במחיקת לקוח')
+    }
+  }
+
   if (!isLoading && !client) {
     return (
       <GlassPanel className="p-8 text-center">
@@ -127,6 +155,10 @@ export const ClientView = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="ghost" className="hover:!text-danger hover:!border-danger/30" onClick={() => setShowDeleteClient(true)}>
+            <Trash2 size={16} />
+            מחק לקוח
+          </Button>
           <Button variant="ghost" onClick={() => setShowClientChangelog(true)}>
             <History size={16} />
             היסטוריית שינויים
@@ -249,6 +281,7 @@ export const ClientView = () => {
                 onBudgetEdit={setBudgetEditCampaign}
                 onStatusChange={handleStatusChange}
                 onEndDateEdit={setEndDateCampaign}
+                onDeleteCampaign={setDeletingCampaign}
                 showTechnicalName={showTechnicalName}
               />
             )}
@@ -262,6 +295,7 @@ export const ClientView = () => {
                 onBudgetEdit={setBudgetEditCampaign}
                 onStatusChange={handleStatusChange}
                 onEndDateEdit={setEndDateCampaign}
+                onDeleteCampaign={setDeletingCampaign}
                 showTechnicalName={showTechnicalName}
               />
             )}
@@ -334,6 +368,25 @@ export const ClientView = () => {
         campaignId={changelogCampaignId ?? undefined}
         clientId={showClientChangelog ? client?.id : undefined}
         title={showClientChangelog ? `היסטוריית שינויים — ${client?.name}` : undefined}
+      />
+
+      {/* Delete confirmations */}
+      <ConfirmDialog
+        open={!!deletingCampaign}
+        onClose={() => setDeletingCampaign(null)}
+        onConfirm={handleDeleteCampaign}
+        title="מחיקת קמפיין"
+        message={`האם למחוק את הקמפיין "${deletingCampaign?.name}"? כל היסטוריית התקציבים והשינויים תימחק לצמיתות.`}
+        isPending={deleteCampaign.isPending}
+      />
+
+      <ConfirmDialog
+        open={showDeleteClient}
+        onClose={() => setShowDeleteClient(false)}
+        onConfirm={handleDeleteClient}
+        title="מחיקת לקוח"
+        message={`האם למחוק את הלקוח "${client?.name}"? כל הקמפיינים, התקציבים וההיסטוריה יימחקו לצמיתות. פעולה זו בלתי הפיכה.`}
+        isPending={deleteClient.isPending}
       />
     </div>
   )

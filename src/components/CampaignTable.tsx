@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle } from 'lucide-react'
+import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle, Trash2 } from 'lucide-react'
 import type { CampaignWithBudget, Platform, CampaignStatus, ChangelogAction } from '@/types'
 import { useChangelog } from '@/hooks/useChangelog'
 import { StatusDropdown } from '@/components/StatusDropdown'
@@ -79,6 +79,7 @@ interface CampaignTableProps {
   onBudgetEdit: (campaign: CampaignWithBudget) => void
   onStatusChange: (campaignId: string, status: CampaignStatus) => void
   onEndDateEdit: (campaign: CampaignWithBudget) => void
+  onDeleteCampaign: (campaign: CampaignWithBudget) => void
   showTechnicalName?: boolean
 }
 
@@ -121,6 +122,7 @@ export const CampaignTable = ({
   onBudgetEdit,
   onStatusChange,
   onEndDateEdit,
+  onDeleteCampaign,
   showTechnicalName = false,
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -286,6 +288,14 @@ export const CampaignTable = ({
                           title="עריכת קמפיין"
                         >
                           <Pencil size={14} />
+                        </Button>
+                        <Button
+                          variant="icon"
+                          className="!w-8 !h-8 hover:!text-danger"
+                          onClick={() => onDeleteCampaign(campaign)}
+                          title="מחיקת קמפיין"
+                        >
+                          <Trash2 size={14} />
                         </Button>
                         <Button
                           variant="icon"

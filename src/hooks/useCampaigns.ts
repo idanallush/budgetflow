@@ -185,3 +185,27 @@ export const useUpdateCampaignStatus = () => {
     },
   })
 }
+
+export const useDeleteCampaign = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: { campaign_id: string; client_id: string }) => {
+      if (isDemoMode()) {
+        const idx = demoCampaigns.findIndex((c) => c.id === input.campaign_id)
+        if (idx !== -1) demoCampaigns.splice(idx, 1)
+        return
+      }
+
+      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
+
+      if (!res.ok) throw new Error('Failed to delete campaign')
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', variables.client_id] })
+    },
+  })
+}

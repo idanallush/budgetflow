@@ -47,5 +47,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  if (req.method === 'DELETE') {
+    try {
+      const [deleted] = await db
+        .delete(campaigns)
+        .where(eq(campaigns.id, id))
+        .returning()
+
+      if (!deleted) return error(res, 'Campaign not found', 404)
+      return json(res, { success: true })
+    } catch (err) {
+      console.error('Delete campaign error:', err)
+      return error(res, 'Internal server error', 500)
+    }
+  }
+
   return methodNotAllowed(res)
 }

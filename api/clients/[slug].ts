@@ -48,5 +48,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  if (req.method === 'DELETE') {
+    try {
+      const [deleted] = await db
+        .delete(clients)
+        .where(eq(clients.slug, slug))
+        .returning()
+
+      if (!deleted) return error(res, 'Client not found', 404)
+      return json(res, { success: true })
+    } catch (err) {
+      console.error('Delete client error:', err)
+      return error(res, 'Internal server error', 500)
+    }
+  }
+
   return methodNotAllowed(res)
 }

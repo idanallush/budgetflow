@@ -114,3 +114,27 @@ export const useUpdateClient = () => {
     },
   })
 }
+
+export const useDeleteClient = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (slug: string) => {
+      if (isDemoMode()) {
+        const idx = demoClients.findIndex((c) => c.slug === slug)
+        if (idx !== -1) demoClients.splice(idx, 1)
+        return
+      }
+
+      const res = await fetch(`/api/clients/${slug}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
+
+      if (!res.ok) throw new Error('Failed to delete client')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+    },
+  })
+}
