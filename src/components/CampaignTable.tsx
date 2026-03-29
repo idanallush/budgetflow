@@ -78,6 +78,7 @@ interface CampaignTableProps {
   onViewChangelog: (campaignId: string) => void
   onBudgetEdit: (campaign: CampaignWithBudget) => void
   onStatusChange: (campaignId: string, status: CampaignStatus) => void
+  onEndDateEdit: (campaign: CampaignWithBudget) => void
   showTechnicalName?: boolean
 }
 
@@ -119,6 +120,7 @@ export const CampaignTable = ({
   onEditCampaign,
   onBudgetEdit,
   onStatusChange,
+  onEndDateEdit,
   showTechnicalName = false,
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -202,15 +204,25 @@ export const CampaignTable = ({
                       {formatDate(campaign.start_date)}
                     </td>
 
-                    {/* End date with urgency color */}
+                    {/* End date with urgency color — clickable */}
                     <td className="text-sm">
-                      {campaign.end_date ? (
-                        <span className={urgencyStyles[getEndDateUrgency(campaign.end_date) ?? 'ok']}>
-                          {formatDate(campaign.end_date)}
-                        </span>
-                      ) : (
-                        <span className="text-text-muted text-xs">—</span>
-                      )}
+                      <button
+                        className="group flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
+                        onClick={() => onEndDateEdit(campaign)}
+                        title="עריכת תאריך סיום"
+                      >
+                        {campaign.end_date ? (
+                          <span className={urgencyStyles[getEndDateUrgency(campaign.end_date) ?? 'ok']}>
+                            {formatDate(campaign.end_date)}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted text-xs">—</span>
+                        )}
+                        <Pencil
+                          size={10}
+                          className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
+                      </button>
                     </td>
 
                     {/* Status dropdown */}
