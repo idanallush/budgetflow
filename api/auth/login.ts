@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import bcrypt from 'bcryptjs'
 import { eq } from 'drizzle-orm'
-import { getDb } from '../lib/db'
-import { teamMembers } from '../lib/schema'
-import { signToken } from '../lib/auth'
-import { json, error, methodNotAllowed } from '../lib/api-helpers'
+import { getDb } from '../_lib/db'
+import { teamMembers } from '../_lib/schema'
+import { signToken } from '../_lib/auth'
+import { json, error, methodNotAllowed } from '../_lib/api-helpers'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return methodNotAllowed(res)
