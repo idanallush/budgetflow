@@ -58,7 +58,11 @@ export const Login = () => {
             <p className="text-sm text-danger text-center">
               {loginError.message === 'Invalid email or password'
                 ? 'אימייל או סיסמה שגויים'
-                : 'שגיאה בהתחברות'}
+                : loginError.message === 'NETWORK_ERROR'
+                ? 'שגיאת רשת — בדוק חיבור לאינטרנט'
+                : loginError.message === 'INVALID_RESPONSE'
+                ? 'שגיאת שרת — תשובה לא תקינה'
+                : `שגיאה: ${loginError.message}`}
             </p>
           )}
 
