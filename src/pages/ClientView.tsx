@@ -14,7 +14,7 @@ import { EndDateEditDialog } from '@/components/EndDateEditDialog'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { toast } from '@/components/ui/Toast'
-import { formatCurrency, todayISO } from '@/lib/format'
+import { formatCurrency, todayISO, getDaysInMonth } from '@/lib/format'
 import type { CampaignWithBudget, CampaignStatus } from '@/types'
 
 const hebrewMonths = [
@@ -78,6 +78,12 @@ export const ClientView = () => {
     .reduce((sum, c) => sum + c.monthly_forecast, 0) ?? 0
   const totalOriginal = campaigns?.reduce((sum, c) => sum + c.original_plan, 0) ?? 0
   const totalVariance = totalForecast - totalOriginal
+  const now = new Date()
+  const daysInMonth = getDaysInMonth(now.getFullYear(), now.getMonth())
+  const daysPassed = now.getDate()
+  const daysRemaining = daysInMonth - daysPassed
+  const monthProgress = Math.round((daysPassed / daysInMonth) * 100)
+
   const hasCampaigns = campaigns && campaigns.length > 0
   const hasFb = campaigns?.some((c) => c.platform === 'facebook')
   const hasGoogle = campaigns?.some((c) => c.platform === 'google')
@@ -237,6 +243,62 @@ export const ClientView = () => {
             </div>
           </div>
         )}
+
+        {/* Days info row */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0 0' }} />
+        <div className="flex items-center gap-4 pt-4 flex-wrap">
+          {/* Mini progress ring */}
+          <div className="shrink-0" style={{ width: 48, height: 48 }}>
+            <svg viewBox="0 0 48 48" style={{ width: '100%', height: '100%' }}>
+              <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
+              <circle
+                cx="24" cy="24" r="20" fill="none"
+                stroke="var(--color-accent)" strokeWidth="4" strokeLinecap="round"
+                strokeDasharray={`${(daysPassed / daysInMonth) * 125.6} 125.6`}
+                transform="rotate(-90 24 24)"
+                style={{ transition: 'stroke-dasharray 0.5s ease' }}
+              />
+              <text x="24" y="24" textAnchor="middle" dominantBaseline="central"
+                fill="rgba(255,255,255,0.9)" fontSize="13" fontWeight="600" fontFamily="var(--font-sans)">
+                {daysPassed}
+              </text>
+            </svg>
+          </div>
+
+          {/* Day metrics */}
+          <div className="flex items-center gap-6 flex-1">
+            <div className="text-center">
+              <p className="text-xs text-text-muted mb-1">ימים בחודש</p>
+              <p className="text-lg font-semibold">{daysInMonth}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-text-muted mb-1">ימים שעברו</p>
+              <p className="text-lg font-semibold text-accent">{daysPassed}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-text-muted mb-1">ימים שנשארו</p>
+              <p className="text-lg font-semibold">{daysRemaining}</p>
+            </div>
+          </div>
+
+          {/* Linear progress bar */}
+          <div className="flex-1 max-w-[200px]">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-text-muted">התקדמות החודש</span>
+              <span className="text-xs font-semibold">{monthProgress}%</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div
+                className="h-1.5 rounded-full"
+                style={{
+                  width: `${monthProgress}%`,
+                  background: 'var(--color-accent)',
+                  transition: 'width 0.5s ease',
+                }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Stats */}
