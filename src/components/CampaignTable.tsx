@@ -78,6 +78,7 @@ interface CampaignTableProps {
   onViewChangelog: (campaignId: string) => void
   onBudgetEdit: (campaign: CampaignWithBudget) => void
   onStatusChange: (campaignId: string, status: CampaignStatus) => void
+  showTechnicalName?: boolean
 }
 
 const platformLabels: Record<Platform, string> = {
@@ -93,6 +94,7 @@ export const CampaignTable = ({
   onEditCampaign,
   onBudgetEdit,
   onStatusChange,
+  showTechnicalName = false,
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const platformCampaigns = campaigns.filter((c) => c.platform === platform)
@@ -128,7 +130,7 @@ export const CampaignTable = ({
         <table className="glass-table">
           <thead>
             <tr>
-              <th>קמפיין</th>
+              <th>{showTechnicalName ? 'שם במערכת' : 'קמפיין'}</th>
               <th>תאריך התחלה</th>
               <th>סטטוס</th>
               <th>תקציב יומי</th>
@@ -148,7 +150,11 @@ export const CampaignTable = ({
                     <td>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{campaign.name}</span>
+                          <span className="font-medium">
+                            {showTechnicalName
+                              ? (campaign.technical_name || campaign.name)
+                              : campaign.name}
+                          </span>
                           {campaign.budget_periods.length > 1 && (
                             <span
                               className="chip text-xs"
@@ -159,7 +165,7 @@ export const CampaignTable = ({
                             </span>
                           )}
                         </div>
-                        {campaign.campaign_type && (
+                        {!showTechnicalName && campaign.campaign_type && (
                           <span className="text-xs text-text-muted mt-0.5">{campaign.campaign_type}</span>
                         )}
                       </div>
