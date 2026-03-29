@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { Button } from './Button'
 
@@ -31,8 +32,8 @@ export const Dialog = ({ open, onClose, title, children, maxWidth = '560px' }: D
 
   if (!open) return null
 
-  return (
-    <div className="dialog-overlay" style={{ padding: '1rem' }} onClick={onClose}>
+  return createPortal(
+    <div className="dialog-overlay" onClick={onClose}>
       <div
         className="dialog animate-enter"
         style={{ maxWidth }}
@@ -48,6 +49,7 @@ export const Dialog = ({ open, onClose, title, children, maxWidth = '560px' }: D
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
