@@ -4,9 +4,10 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../_lib/db.js'
 import { teamMembers } from '../_lib/schema.js'
 import { signToken } from '../_lib/auth.js'
-import { json, error, methodNotAllowed } from '../_lib/api-helpers.js'
+import { json, error, methodNotAllowed, handleCors } from '../_lib/api-helpers.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (handleCors(req, res)) return
   if (req.method !== 'POST') return methodNotAllowed(res)
 
   const { email, password } = req.body ?? {}

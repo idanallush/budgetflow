@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { eq, isNull, and } from 'drizzle-orm'
 import { getDb } from '../../_lib/db.js'
 import { campaigns, budgetPeriods, changelog } from '../../_lib/schema.js'
-import { json, error, methodNotAllowed, requireAuth } from '../../_lib/api-helpers.js'
+import { json, error, methodNotAllowed, requireAuth, handleCors } from '../../_lib/api-helpers.js'
 
 const statusLabels: Record<string, string> = {
   active: 'פעיל',
@@ -11,6 +11,7 @@ const statusLabels: Record<string, string> = {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (handleCors(req, res)) return
   if (req.method !== 'POST') return methodNotAllowed(res)
 
   const user = requireAuth(req, res)

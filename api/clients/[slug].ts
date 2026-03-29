@@ -2,9 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../_lib/db.js'
 import { clients } from '../_lib/schema.js'
-import { json, error, methodNotAllowed, requireAuth } from '../_lib/api-helpers.js'
+import { json, error, methodNotAllowed, requireAuth, handleCors } from '../_lib/api-helpers.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (handleCors(req, res)) return
   const user = requireAuth(req, res)
   if (!user) return
 
