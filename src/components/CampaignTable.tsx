@@ -86,7 +86,32 @@ const platformLabels: Record<Platform, string> = {
   google: 'Google Ads',
 }
 
-const COL_COUNT = 8
+const COL_COUNT = 9
+
+/**
+ * Returns urgency level for campaign end date:
+ * 'expired' = date passed or is today
+ * 'soon' = within 3 days
+ * 'ok' = more than 3 days away
+ * null = no end date set
+ */
+const getEndDateUrgency = (endDate: string | null): 'expired' | 'soon' | 'ok' | null => {
+  if (!endDate) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const end = new Date(endDate)
+  end.setHours(0, 0, 0, 0)
+  const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays <= 0) return 'expired'
+  if (diffDays <= 3) return 'soon'
+  return 'ok'
+}
+
+const urgencyStyles: Record<string, string> = {
+  expired: 'text-danger font-semibold',
+  soon: 'text-warning font-medium',
+  ok: 'text-text-secondary',
+}
 
 export const CampaignTable = ({
   campaigns,
@@ -132,6 +157,7 @@ export const CampaignTable = ({
             <tr>
               <th>{showTechnicalName ? 'שם במערכת' : 'קמפיין'}</th>
               <th>תאריך התחלה</th>
+              <th>תאריך סיום</th>
               <th>סטטוס</th>
               <th>תקציב יומי</th>
               <th>צפי חודשי</th>
@@ -174,6 +200,17 @@ export const CampaignTable = ({
                     {/* Start date */}
                     <td className="text-text-secondary text-sm">
                       {formatDate(campaign.start_date)}
+                    </td>
+
+                    {/* End date with urgency color */}
+                    <td className="text-sm">
+                      {campaign.end_date ? (
+                        <span className={urgencyStyles[getEndDateUrgency(campaign.end_date) ?? 'ok']}>
+                          {formatDate(campaign.end_date)}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted text-xs">—</span>
+                      )}
                     </td>
 
                     {/* Status dropdown */}
@@ -263,7 +300,7 @@ export const CampaignTable = ({
 
             {/* Summary row */}
             <tr className="summary-row">
-              <td colSpan={3}>סה״כ {platformLabels[platform]}</td>
+              <td colSpan={4}>סה״כ {platformLabels[platform]}</td>
               <td className="font-semibold">{formatCurrency(totalDaily)}</td>
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
               <td className="text-text-secondary">{formatCurrency(totalOriginal)}</td>
