@@ -7,7 +7,7 @@ import { PlatformIcon } from '@/components/ui/PlatformIcon'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { formatCurrency, formatDateTime } from '@/lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 
 /* ── Inline changelog row ── */
 
@@ -85,7 +85,7 @@ const platformLabels: Record<Platform, string> = {
   google: 'Google Ads',
 }
 
-const COL_COUNT = 7
+const COL_COUNT = 8
 
 export const CampaignTable = ({
   campaigns,
@@ -129,6 +129,7 @@ export const CampaignTable = ({
           <thead>
             <tr>
               <th>קמפיין</th>
+              <th>תאריך התחלה</th>
               <th>סטטוס</th>
               <th>תקציב יומי</th>
               <th>צפי חודשי</th>
@@ -143,14 +144,30 @@ export const CampaignTable = ({
               return (
                 <>
                   <tr key={campaign.id}>
-                    {/* Campaign name */}
+                    {/* Campaign name + changes badge */}
                     <td>
                       <div className="flex flex-col">
-                        <span className="font-medium">{campaign.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{campaign.name}</span>
+                          {campaign.budget_periods.length > 1 && (
+                            <span
+                              className="chip text-xs"
+                              title={`${campaign.budget_periods.length - 1} שינויי תקציב`}
+                              style={{ padding: '1px 6px', fontSize: '0.65rem' }}
+                            >
+                              {campaign.budget_periods.length - 1} שינויים
+                            </span>
+                          )}
+                        </div>
                         {campaign.campaign_type && (
                           <span className="text-xs text-text-muted mt-0.5">{campaign.campaign_type}</span>
                         )}
                       </div>
+                    </td>
+
+                    {/* Start date */}
+                    <td className="text-text-secondary text-sm">
+                      {formatDate(campaign.start_date)}
                     </td>
 
                     {/* Status dropdown */}
@@ -240,7 +257,7 @@ export const CampaignTable = ({
 
             {/* Summary row */}
             <tr className="summary-row">
-              <td colSpan={2}>סה״כ {platformLabels[platform]}</td>
+              <td colSpan={3}>סה״כ {platformLabels[platform]}</td>
               <td className="font-semibold">{formatCurrency(totalDaily)}</td>
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
               <td className="text-text-secondary">{formatCurrency(totalOriginal)}</td>
