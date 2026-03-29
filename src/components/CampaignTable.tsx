@@ -218,7 +218,7 @@ export const CampaignTable = ({
                             {formatDate(campaign.end_date)}
                           </span>
                         ) : (
-                          <span className="text-text-muted text-xs">—</span>
+                          <span className="text-text-muted text-xs">Always on</span>
                         )}
                         <Pencil
                           size={10}
