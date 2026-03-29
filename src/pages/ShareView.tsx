@@ -1,6 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { useClientByShareToken } from '@/hooks/useClients'
-import { useCampaigns } from '@/hooks/useCampaigns'
+import { useShareData } from '@/hooks/useShareData'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { PlatformIcon } from '@/components/ui/PlatformIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -61,13 +60,13 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
 
 export const ShareView = () => {
   const { token } = useParams<{ token: string }>()
-  const { data: client, isLoading: clientLoading } = useClientByShareToken(token ?? '')
-  const { data: campaigns, isLoading: campaignsLoading } = useCampaigns(client?.id ?? '')
+  const { data, isLoading } = useShareData(token ?? '')
 
-  const isLoading = clientLoading || campaignsLoading
+  const client = data?.client
+  const campaigns = data?.campaigns ?? []
 
-  const totalForecast = campaigns?.reduce((sum, c) => sum + c.monthly_forecast, 0) ?? 0
-  const totalDaily = campaigns?.reduce((sum, c) => sum + c.current_daily_budget, 0) ?? 0
+  const totalForecast = campaigns.reduce((sum, c) => sum + c.monthly_forecast, 0)
+  const totalDaily = campaigns.reduce((sum, c) => sum + c.current_daily_budget, 0)
 
   const now = new Date()
   const monthNames = [
@@ -123,11 +122,10 @@ export const ShareView = () => {
             </div>
           ) : (
             <>
-              <ShareTable campaigns={campaigns ?? []} platform="facebook" />
-              <ShareTable campaigns={campaigns ?? []} platform="google" />
+              <ShareTable campaigns={campaigns} platform="facebook" />
+              <ShareTable campaigns={campaigns} platform="google" />
 
-              {/* Grand Total */}
-              {campaigns && campaigns.length > 0 && (
+              {campaigns.length > 0 && (
                 <div className="glass-card p-5 mt-2">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-lg">סה״כ כללי</span>

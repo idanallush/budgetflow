@@ -43,44 +43,29 @@ export const useAuth = () => {
 
   const loginMutation = useMutation({
     mutationFn: async (input: { email: string; password: string }) => {
-      console.log('[useAuth] Sending login request:', { email: input.email })
-
-      let res: Response
-      try {
-        res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
-        })
-      } catch (networkErr) {
-        console.error('[useAuth] Network error:', networkErr)
-        throw new Error('NETWORK_ERROR')
-      }
-
-      console.log('[useAuth] Response status:', res.status, res.statusText)
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
 
       const text = await res.text()
-      console.log('[useAuth] Response body:', text.slice(0, 500))
 
       let data: { token?: string; user?: AuthUser; error?: string }
       try {
         data = JSON.parse(text)
       } catch {
-        console.error('[useAuth] Response is not JSON:', text.slice(0, 200))
         throw new Error('INVALID_RESPONSE')
       }
 
       if (!res.ok) {
-        console.error('[useAuth] Login failed:', data.error)
         throw new Error(data.error || 'LOGIN_FAILED')
       }
 
       if (!data.token || !data.user) {
-        console.error('[useAuth] Missing token or user in response:', data)
         throw new Error('INVALID_RESPONSE')
       }
 
-      console.log('[useAuth] Login success, user:', data.user.name)
       return data as { token: string; user: AuthUser }
     },
     onSuccess: (data) => {
@@ -88,7 +73,6 @@ export const useAuth = () => {
       localStorage.setItem(USER_KEY, JSON.stringify(data.user))
       setUser(data.user)
       setIsAuthenticated(true)
-      console.log('[useAuth] Token saved to localStorage')
     },
   })
 

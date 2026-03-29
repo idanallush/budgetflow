@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, inArray } from 'drizzle-orm'
 import { getDb } from '../_lib/db.js'
 import { campaigns, budgetPeriods, changelog } from '../_lib/schema.js'
 import { json, error, methodNotAllowed, requireAuth, handleCors } from '../_lib/api-helpers.js'
@@ -26,13 +26,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let periods: (typeof budgetPeriods.$inferSelect)[] = []
       if (campaignIds.length > 0) {
-        // Fetch all budget periods for these campaigns
-        const allPeriods = await db
+        periods = await db
           .select()
           .from(budgetPeriods)
+          .where(inArray(budgetPeriods.campaign_id, campaignIds))
           .orderBy(asc(budgetPeriods.start_date))
-
-        periods = allPeriods.filter((p) => campaignIds.includes(p.campaign_id))
       }
 
       return json(res, { campaigns: campaignList, budget_periods: periods })

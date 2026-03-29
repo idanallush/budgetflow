@@ -53,14 +53,19 @@ export const todayISO = (): string => {
 }
 
 /**
- * Generate a URL-friendly slug from text
+ * Generate a URL-friendly slug from text.
+ * Supports Hebrew by keeping Unicode letters (\p{L}) alongside ASCII.
+ * Falls back to a short random ID if the result is empty.
  */
 export const slugify = (text: string): string => {
-  return text
+  const slug = text
+    .trim()
     .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
     .replace(/[\s_]+/g, '-')
     .replace(/^-+|-+$/g, '')
+
+  return slug || `client-${crypto.randomUUID().slice(0, 8)}`
 }
 
 /**
