@@ -25,7 +25,8 @@ interface MetaInsight {
 }
 
 async function fetchMetaCampaigns(adAccountId: string, accessToken: string): Promise<MetaCampaign[]> {
-  const url = `${META_BASE_URL}/${adAccountId}/campaigns?fields=id,name,status,daily_budget,objective,start_time,stop_time&limit=500&access_token=${accessToken}`
+  const filtering = encodeURIComponent(JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }]))
+  const url = `${META_BASE_URL}/${adAccountId}/campaigns?fields=id,name,status,daily_budget,objective,start_time,stop_time&filtering=${filtering}&limit=500&access_token=${accessToken}`
   const res = await fetch(url)
   if (!res.ok) {
     const err = await res.json()
@@ -120,8 +121,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           last_synced_at: now,
         }).where(eq(campaigns.id, existing.id))
         updated++
-      } else {
-        // Create new campaign
+      } else if (status === 'active') {
+        // Only create NEW campaigns if they are active
+        // Don't auto-import paused campaigns we never tracked
         const startDate = mc.start_time ? mc.start_time.split('T')[0] : new Date().toISOString().split('T')[0]
         const endDate = mc.stop_time ? mc.stop_time.split('T')[0] : null
 
@@ -157,6 +159,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
 
         created++
+      }
+    }
+
+    // Update spend for campaigns that had spend this month but aren't ACTIVE/PAUSED anymore
+    const metaCampaignIds = new Set(metaCampaigns.map(mc => mc.id))
+    for (const insight of metaInsights) {
+      if (!metaCampaignIds.has(insight.campaign_id)) {
+        const existing = metaIdMap.get(insight.campaign_id)
+        if (existing) {
+          await db.update(campaigns).set({
+            actual_spend: String(Number(insight.spend) || 0),
+            last_synced_at: now,
+          }).where(eq(campaigns.id, existing.id))
+          updated++
+        }
       }
     }
 
