@@ -129,10 +129,11 @@ export const useUpdateBudget = () => {
         return
       }
 
-      const res = await fetch(`/api/campaigns/${input.campaign_id}/budget`, {
-        method: 'POST',
+      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+        method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
+          action: 'budget',
           new_budget: input.new_budget,
           effective_date: input.effective_date,
           old_budget: input.old_budget,
@@ -172,10 +173,11 @@ export const useUpdateCampaignStatus = () => {
         return
       }
 
-      const res = await fetch(`/api/campaigns/${input.campaign_id}/status`, {
-        method: 'POST',
+      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+        method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
+          action: 'status',
           status: input.status,
           end_date: input.end_date,
         }),
