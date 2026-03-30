@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
-import { useCreateCampaign } from '@/hooks/useCampaigns'
+import { useCreateCampaign, useUpdateCampaignDetails } from '@/hooks/useCampaigns'
 import { todayISO } from '@/lib/format'
 import type { CampaignWithBudget } from '@/types'
 
@@ -24,6 +24,7 @@ const campaignTypes = [
 export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignModalProps) => {
   const isEditing = !!campaign
   const createCampaign = useCreateCampaign()
+  const updateCampaign = useUpdateCampaignDetails()
 
   const [name, setName] = useState('')
   const [technicalName, setTechnicalName] = useState('')
@@ -75,7 +76,15 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
         })
         toast.success('קמפיין חדש נוסף בהצלחה')
       } else {
-        // TODO: implement campaign details update API
+        await updateCampaign.mutateAsync({
+          campaign_id: campaign!.id,
+          client_id: clientId,
+          name: name.trim(),
+          technical_name: technicalName.trim() || null,
+          campaign_type: campaignType || null,
+          ad_link: adLink.trim() || null,
+          notes: notes.trim() || null,
+        })
         toast.success('פרטי קמפיין עודכנו')
       }
       onClose()
@@ -178,9 +187,9 @@ export const CampaignModal = ({ open, onClose, clientId, campaign }: CampaignMod
         <Button variant="ghost" onClick={onClose}>ביטול</Button>
         <Button
           onClick={handleSubmit}
-          disabled={!name.trim() || (!isEditing && !dailyBudget) || createCampaign.isPending}
+          disabled={!name.trim() || (!isEditing && !dailyBudget) || createCampaign.isPending || updateCampaign.isPending}
         >
-          {createCampaign.isPending ? 'שומר...' : isEditing ? 'שמור שינויים' : 'הוסף קמפיין'}
+          {(createCampaign.isPending || updateCampaign.isPending) ? 'שומר...' : isEditing ? 'שמור שינויים' : 'הוסף קמפיין'}
         </Button>
       </div>
     </Dialog>

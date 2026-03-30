@@ -97,6 +97,51 @@ export const useCreateCampaign = () => {
   })
 }
 
+export const useUpdateCampaignDetails = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: {
+      campaign_id: string
+      client_id: string
+      name: string
+      technical_name: string | null
+      campaign_type: string | null
+      ad_link: string | null
+      notes: string | null
+    }) => {
+      if (isDemoMode()) {
+        const campaign = demoCampaigns.find((c) => c.id === input.campaign_id)
+        if (campaign) {
+          campaign.name = input.name
+          campaign.technical_name = input.technical_name
+          campaign.campaign_type = input.campaign_type
+          campaign.ad_link = input.ad_link
+          campaign.notes = input.notes
+        }
+        return
+      }
+
+      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: input.name,
+          technical_name: input.technical_name,
+          campaign_type: input.campaign_type,
+          ad_link: input.ad_link,
+          notes: input.notes,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update campaign')
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', variables.client_id] })
+    },
+  })
+}
+
 export const useUpdateBudget = () => {
   const queryClient = useQueryClient()
 
