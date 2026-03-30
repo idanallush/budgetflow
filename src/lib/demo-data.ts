@@ -14,6 +14,7 @@ export const demoClients: Client[] = [
     is_active: true,
     created_at: '2026-01-15T10:00:00Z',
     notes: 'לקוח פרימיום, תקציב חודשי ₪45,000',
+    meta_ad_account_id: null,
   },
   {
     id: '2',
@@ -23,6 +24,7 @@ export const demoClients: Client[] = [
     is_active: true,
     created_at: '2026-02-01T10:00:00Z',
     notes: null,
+    meta_ad_account_id: null,
   },
   {
     id: '3',
@@ -32,6 +34,7 @@ export const demoClients: Client[] = [
     is_active: true,
     created_at: '2026-02-20T10:00:00Z',
     notes: 'מתמקדים בקמפיין שתלים',
+    meta_ad_account_id: null,
   },
 ]
 
@@ -49,6 +52,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-01-01',
     end_date: null,
     notes: null,
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-01-01T10:00:00Z',
   },
   {
@@ -63,6 +69,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-01-15',
     end_date: null,
     notes: null,
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-01-15T10:00:00Z',
   },
   {
@@ -77,6 +86,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-02-01',
     end_date: null,
     notes: null,
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-02-01T10:00:00Z',
   },
   {
@@ -91,6 +103,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-03-01',
     end_date: null,
     notes: 'מושהה עד לעדכון אתר',
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-03-01T10:00:00Z',
   },
 
@@ -107,6 +122,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-02-01',
     end_date: null,
     notes: null,
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-02-01T10:00:00Z',
   },
   {
@@ -121,6 +139,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-03-01',
     end_date: null,
     notes: null,
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-03-01T10:00:00Z',
   },
 
@@ -137,6 +158,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-02-20',
     end_date: null,
     notes: null,
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-02-20T10:00:00Z',
   },
   {
@@ -151,6 +175,9 @@ export const demoCampaigns: Campaign[] = [
     start_date: '2026-03-01',
     end_date: '2026-03-20',
     notes: 'הופסק - ביצועים נמוכים',
+    meta_campaign_id: null,
+    actual_spend: 0,
+    last_synced_at: null,
     created_at: '2026-03-01T10:00:00Z',
   },
 ]

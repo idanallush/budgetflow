@@ -34,6 +34,7 @@ export interface Client {
   is_active: boolean
   created_at: string
   notes: string | null
+  meta_ad_account_id: string | null
 }
 
 export interface Campaign {
@@ -48,6 +49,9 @@ export interface Campaign {
   start_date: string
   end_date: string | null
   notes: string | null
+  meta_campaign_id: string | null
+  actual_spend: number
+  last_synced_at: string | null
   created_at: string
 }
 

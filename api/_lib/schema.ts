@@ -17,6 +17,7 @@ export const clients = pgTable('clients', {
   share_token: text('share_token').unique().notNull(),
   is_active: boolean('is_active').notNull().default(true),
   notes: text('notes'),
+  meta_ad_account_id: text('meta_ad_account_id'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('idx_clients_slug').on(table.slug),
@@ -35,11 +36,15 @@ export const campaigns = pgTable('campaigns', {
   start_date: date('start_date').notNull(),
   end_date: date('end_date'),
   notes: text('notes'),
+  meta_campaign_id: text('meta_campaign_id'),
+  actual_spend: numeric('actual_spend').default('0'),
+  last_synced_at: timestamp('last_synced_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('idx_campaigns_client_id').on(table.client_id),
   index('idx_campaigns_platform').on(table.platform),
   index('idx_campaigns_status').on(table.status),
+  index('idx_campaigns_meta_campaign_id').on(table.meta_campaign_id),
 ])
 
 export const budgetPeriods = pgTable('budget_periods', {

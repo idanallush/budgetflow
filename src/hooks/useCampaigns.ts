@@ -64,6 +64,9 @@ export const useCreateCampaign = () => {
           start_date: input.start_date,
           end_date: null,
           notes: input.notes ?? null,
+          meta_campaign_id: null,
+          actual_spend: 0,
+          last_synced_at: null,
           created_at: new Date().toISOString(),
         }
         demoCampaigns.push(newCampaign)
