@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { ExternalLink } from 'lucide-react'
 import { useShareData } from '@/hooks/useShareData'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { PlatformIcon } from '@/components/ui/PlatformIcon'
@@ -12,14 +14,21 @@ const platformLabels: Record<Platform, string> = {
   google: 'Google Ads',
 }
 
-const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; platform: Platform }) => {
+const ShareTable = ({
+  campaigns,
+  platform,
+  showActualSpend,
+}: {
+  campaigns: CampaignWithBudget[]
+  platform: Platform
+  showActualSpend: boolean
+}) => {
   const filtered = campaigns.filter((c) => c.platform === platform)
   if (filtered.length === 0) return null
 
   const totalDaily = filtered.reduce((sum, c) => sum + c.current_daily_budget, 0)
   const totalForecast = filtered.reduce((sum, c) => sum + c.monthly_forecast, 0)
   const totalActualSpend = filtered.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0)
-  const hasActualSpend = filtered.some((c) => Number(c.actual_spend) > 0)
 
   return (
     <div className="mb-6">
@@ -35,8 +44,9 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
               <th>קמפיין</th>
               <th>סטטוס</th>
               <th>תקציב יומי</th>
-              <th>תחזית חודשית</th>
-              {hasActualSpend && <th>הוצאה בפועל</th>}
+              <th>צפי חודשי</th>
+              {showActualSpend && <th>הוצאה בפועל</th>}
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -46,11 +56,24 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
                 <td><StatusBadge status={campaign.status} /></td>
                 <td>{formatCurrency(campaign.current_daily_budget)}</td>
                 <td className="font-semibold">{formatCurrency(campaign.monthly_forecast)}</td>
-                {hasActualSpend && (
+                {showActualSpend && (
                   <td className="font-semibold">
                     {Number(campaign.actual_spend) > 0 ? formatCurrency(Number(campaign.actual_spend)) : '—'}
                   </td>
                 )}
+                <td>
+                  {campaign.ad_link && (
+                    <a
+                      href={campaign.ad_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-icon !w-8 !h-8 !text-accent hover:!bg-[rgba(37,99,235,0.15)]"
+                      title="צפה במודעה"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+                </td>
               </tr>
             ))}
             <tr className="summary-row">
@@ -58,9 +81,12 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
               <td></td>
               <td className="font-semibold">{formatCurrency(totalDaily)}</td>
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
-              {hasActualSpend && (
-                <td className="font-semibold">{formatCurrency(totalActualSpend)}</td>
+              {showActualSpend && (
+                <td className="font-semibold">
+                  {totalActualSpend > 0 ? formatCurrency(totalActualSpend) : '—'}
+                </td>
               )}
+              <td></td>
             </tr>
           </tbody>
         </table>
@@ -72,12 +98,15 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
 export const ShareView = () => {
   const { token } = useParams<{ token: string }>()
   const { data, isLoading } = useShareData(token ?? '')
+  const [showActualSpend, setShowActualSpend] = useState(false)
 
   const client = data?.client
   const campaigns = data?.campaigns ?? []
 
   const totalForecast = campaigns.reduce((sum, c) => sum + c.monthly_forecast, 0)
   const totalDaily = campaigns.reduce((sum, c) => sum + c.current_daily_budget, 0)
+  const totalActualSpend = campaigns.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0)
+  const hasActualSpend = campaigns.some((c) => Number(c.actual_spend) > 0)
 
   const now = new Date()
   const monthNames = [
@@ -99,7 +128,7 @@ export const ShareView = () => {
     <div className="min-h-screen p-4 sm:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
@@ -124,6 +153,18 @@ export const ShareView = () => {
           </div>
         </div>
 
+        {/* Actual spend toggle */}
+        {hasActualSpend && (
+          <div className="flex items-center justify-end mb-4">
+            <button
+              className={`chip text-sm cursor-pointer ${showActualSpend ? 'active' : ''}`}
+              onClick={() => setShowActualSpend(!showActualSpend)}
+            >
+              {showActualSpend ? 'הסתר הוצאה בפועל' : 'הצג הוצאה בפועל'}
+            </button>
+          </div>
+        )}
+
         {/* Tables */}
         <GlassPanel className="p-6 animate-enter">
           {isLoading ? (
@@ -133,12 +174,12 @@ export const ShareView = () => {
             </div>
           ) : (
             <>
-              <ShareTable campaigns={campaigns} platform="facebook" />
-              <ShareTable campaigns={campaigns} platform="google" />
+              <ShareTable campaigns={campaigns} platform="facebook" showActualSpend={showActualSpend} />
+              <ShareTable campaigns={campaigns} platform="google" showActualSpend={showActualSpend} />
 
               {campaigns.length > 0 && (
                 <div className="glass-card p-5 mt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
                     <span className="font-semibold text-lg">סה״כ כללי</span>
                     <div className="flex items-center gap-6">
                       <div className="text-end">
@@ -149,6 +190,12 @@ export const ShareView = () => {
                         <p className="text-xs text-text-muted">חודשי</p>
                         <p className="text-2xl font-semibold text-accent">{formatCurrency(totalForecast)}</p>
                       </div>
+                      {showActualSpend && totalActualSpend > 0 && (
+                        <div className="text-end">
+                          <p className="text-xs text-text-muted">הוצאה בפועל</p>
+                          <p className="font-semibold">{formatCurrency(totalActualSpend)}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
