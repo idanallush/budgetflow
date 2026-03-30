@@ -188,17 +188,6 @@ export const CampaignTable = ({
                               {campaign.budget_periods.length - 1} שינויים
                             </span>
                           )}
-                          {campaign.ad_link && (
-                            <a
-                              href={campaign.ad_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-accent hover:text-white transition-colors"
-                              title="צפה ב-Ads Manager"
-                            >
-                              <ExternalLink size={14} />
-                            </a>
-                          )}
                         </div>
                         {!showTechnicalName && campaign.campaign_type && (
                           <span className="text-xs text-text-muted mt-0.5">{campaign.campaign_type}</span>
@@ -274,6 +263,17 @@ export const CampaignTable = ({
                     {/* Action buttons */}
                     <td>
                       <div className="flex items-center gap-1">
+                        {campaign.ad_link && (
+                          <a
+                            href={campaign.ad_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-icon !w-8 !h-8 !text-accent hover:!bg-[rgba(37,99,235,0.15)]"
+                            title="צפה במודעה"
+                          >
+                            <ExternalLink size={15} />
+                          </a>
+                        )}
                         <Button
                           variant="icon"
                           className="!w-8 !h-8"

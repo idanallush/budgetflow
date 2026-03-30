@@ -61,9 +61,56 @@ async function fetchCampaignDetails(campaignIds: string[], accessToken: string):
   return results
 }
 
-function buildCampaignAdLink(campaignId: string, adAccountId: string): string {
+/**
+ * Fetch the top ad's preview_shareable_link for a campaign.
+ * Fallback chain: preview_shareable_link → Ads Manager with ad → Ads Manager campaign view.
+ */
+async function fetchTopAdLink(
+  campaignId: string,
+  adAccountId: string,
+  accessToken: string,
+  monthStart: string,
+  today: string
+): Promise<string> {
   const accountNum = adAccountId.replace('act_', '')
-  return `https://www.facebook.com/adsmanager/manage/ads?act=${accountNum}&campaign_ids=${campaignId}`
+
+  try {
+    // Get top ad by spend this month
+    const insightsUrl = `${META_BASE_URL}/${campaignId}/insights?fields=ad_id&level=ad&time_range={"since":"${monthStart}","until":"${today}"}&sort=spend_descending&limit=1&access_token=${accessToken}`
+    const insightsRes = await fetch(insightsUrl)
+
+    if (!insightsRes.ok) {
+      return `https://www.facebook.com/adsmanager/manage/ads?act=${accountNum}&campaign_ids=${campaignId}`
+    }
+
+    const insightsData = await insightsRes.json()
+    const topAdId = insightsData.data?.[0]?.ad_id
+
+    if (!topAdId) {
+      return `https://www.facebook.com/adsmanager/manage/ads?act=${accountNum}&campaign_ids=${campaignId}`
+    }
+
+    // Get preview_shareable_link
+    const adUrl = `${META_BASE_URL}/${topAdId}?fields=preview_shareable_link&access_token=${accessToken}`
+    const adRes = await fetch(adUrl)
+
+    if (!adRes.ok) {
+      return `https://www.facebook.com/adsmanager/manage/ads?act=${accountNum}&selected_ad_ids=${topAdId}`
+    }
+
+    const adData = await adRes.json()
+
+    // Priority 1: preview_shareable_link (public fb.me/adspreview link)
+    if (adData.preview_shareable_link) {
+      return adData.preview_shareable_link
+    }
+
+    // Priority 2: Ads Manager with specific ad
+    return `https://www.facebook.com/adsmanager/manage/ads?act=${accountNum}&selected_ad_ids=${topAdId}`
+
+  } catch {
+    return `https://www.facebook.com/adsmanager/manage/ads?act=${accountNum}&campaign_ids=${campaignId}`
+  }
 }
 
 function mapMetaStatus(metaStatus: string): 'active' | 'paused' | 'stopped' {
@@ -99,6 +146,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!accountId) return error(res, 'No Meta Ad Account ID configured for this client')
 
     const now = new Date()
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const todayStr = now.toISOString().split('T')[0]
 
     const monthlyInsights = await fetchMonthlyInsights(accountId, accessToken)
 
@@ -135,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const mc of metaCampaigns) {
       const spend = spendMap.get(mc.id) ?? 0
       const status = mapMetaStatus(mc.status)
-      const adLink = buildCampaignAdLink(mc.id, accountId)
+      const adLink = await fetchTopAdLink(mc.id, accountId, accessToken, monthStart, todayStr)
 
       const existing = metaIdMap.get(mc.id)
 
@@ -148,7 +197,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).where(eq(campaigns.id, existing.id))
         updated++
       } else {
-        const startDate = mc.start_time ? mc.start_time.split('T')[0] : now.toISOString().split('T')[0]
+        const startDate = mc.start_time ? mc.start_time.split('T')[0] : todayStr
         const endDate = mc.stop_time ? mc.stop_time.split('T')[0] : null
 
         const [newCampaign] = await db.insert(campaigns).values({
