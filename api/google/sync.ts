@@ -131,8 +131,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         campaign.id,
         campaign.name,
         campaign.status,
-        campaign.start_date,
-        campaign.end_date,
         metrics.cost_micros,
         metrics.impressions
       FROM campaign
@@ -167,8 +165,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           id: cId,
           name: c.name,
           status: c.status,
-          startDate: formatGoogleDate(c.startDate),
-          endDate: formatGoogleDate(c.endDate),
+          startDate: null,
+          endDate: null,
           totalCostMicros: Number(m.costMicros || 0),
           totalImpressions: Number(m.impressions || 0),
         })
@@ -202,7 +200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).where(eq(campaigns.id, existing.id))
         updated++
       } else {
-        const startDate = gc.startDate || today
+        const startDate = today
 
         const [newCampaign] = await db.insert(campaigns).values({
           client_id,
