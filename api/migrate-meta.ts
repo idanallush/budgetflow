@@ -34,9 +34,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS last_synced_at timestamptz DEFAULT NULL`
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_meta_campaign_id ON campaigns(meta_campaign_id)`
 
+    // Google Ads migration
+    await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_customer_id text DEFAULT NULL`
+
     return res.status(200).json({
       success: true,
-      message: 'Meta API migration completed — added meta_ad_account_id, meta_campaign_id, actual_spend, last_synced_at',
+      message: 'Migration completed — Meta + Google fields added',
     })
   } catch (err) {
     console.error('Migration error:', err)
