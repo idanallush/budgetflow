@@ -19,29 +19,22 @@ interface MetaCampaign {
 
 interface MetaInsight {
   campaign_id: string
+  campaign_name: string
   spend: string
+  impressions: string
   date_start: string
   date_stop: string
 }
 
-async function fetchMetaCampaigns(adAccountId: string, accessToken: string): Promise<MetaCampaign[]> {
-  const filtering = encodeURIComponent(JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }]))
-  const url = `${META_BASE_URL}/${adAccountId}/campaigns?fields=id,name,status,daily_budget,objective,start_time,stop_time&filtering=${filtering}&limit=500&access_token=${accessToken}`
-  const res = await fetch(url)
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(`Meta API error: ${JSON.stringify(err)}`)
-  }
-  const data = await res.json()
-  return data.data ?? []
-}
-
-async function fetchMetaInsights(adAccountId: string, accessToken: string): Promise<MetaInsight[]> {
+/**
+ * Fetch insights for the current month — source of truth for which campaigns had activity.
+ */
+async function fetchMonthlyInsights(adAccountId: string, accessToken: string): Promise<MetaInsight[]> {
   const now = new Date()
   const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const today = now.toISOString().split('T')[0]
 
-  const url = `${META_BASE_URL}/${adAccountId}/insights?fields=campaign_id,spend&level=campaign&time_range={"since":"${firstDay}","until":"${today}"}&limit=500&access_token=${accessToken}`
+  const url = `${META_BASE_URL}/${adAccountId}/insights?fields=campaign_id,campaign_name,spend,impressions&level=campaign&time_range={"since":"${firstDay}","until":"${today}"}&limit=500&access_token=${accessToken}`
   const res = await fetch(url)
   if (!res.ok) {
     const err = await res.json()
@@ -49,6 +42,31 @@ async function fetchMetaInsights(adAccountId: string, accessToken: string): Prom
   }
   const data = await res.json()
   return data.data ?? []
+}
+
+/**
+ * Fetch campaign details for specific campaign IDs using Meta batch lookup.
+ */
+async function fetchCampaignDetails(campaignIds: string[], accessToken: string): Promise<MetaCampaign[]> {
+  const results: MetaCampaign[] = []
+
+  // Fetch in chunks of 50 to avoid URL length issues
+  for (let i = 0; i < campaignIds.length; i += 50) {
+    const chunk = campaignIds.slice(i, i + 50)
+    const ids = chunk.join(',')
+    const url = `${META_BASE_URL}/?ids=${ids}&fields=id,name,status,daily_budget,objective,start_time,stop_time&access_token=${accessToken}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(`Meta API error: ${JSON.stringify(err)}`)
+    }
+    const data = await res.json() as Record<string, MetaCampaign>
+    for (const id of chunk) {
+      if (data[id]) results.push(data[id])
+    }
+  }
+
+  return results
 }
 
 function mapMetaStatus(metaStatus: string): 'active' | 'paused' | 'stopped' {
@@ -85,30 +103,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (!accountId) return error(res, 'No Meta Ad Account ID configured for this client')
 
-    // Fetch campaigns and insights from Meta
-    const [metaCampaigns, metaInsights] = await Promise.all([
-      fetchMetaCampaigns(accountId, accessToken),
-      fetchMetaInsights(accountId, accessToken),
-    ])
+    const now = new Date()
 
-    // Build spend lookup: campaign_id -> spend
+    // Step 1: Fetch insights — source of truth for "active this month"
+    const monthlyInsights = await fetchMonthlyInsights(accountId, accessToken)
+
+    // Filter: only campaigns with actual activity
+    const activeInsights = monthlyInsights.filter(
+      (i) => Number(i.spend) > 0 || Number(i.impressions) > 0
+    )
+
+    if (activeInsights.length === 0) {
+      return json(res, {
+        success: true,
+        ad_account_id: accountId,
+        total_meta_campaigns: 0,
+        created: 0,
+        updated: 0,
+        synced_at: now.toISOString(),
+        message: 'No campaigns with activity this month',
+      })
+    }
+
+    // Build spend lookup
     const spendMap = new Map<string, number>()
-    for (const insight of metaInsights) {
+    for (const insight of activeInsights) {
       spendMap.set(insight.campaign_id, Number(insight.spend) || 0)
     }
 
-    // Get existing campaigns for this client
+    // Step 2: Fetch campaign details only for active campaigns
+    const activeCampaignIds = activeInsights.map((i) => i.campaign_id)
+    const metaCampaigns = await fetchCampaignDetails(activeCampaignIds, accessToken)
+
+    // Step 3: Get existing campaigns for this client
     const existingCampaigns = await db.select().from(campaigns).where(eq(campaigns.client_id, client_id))
     const metaIdMap = new Map(existingCampaigns.filter(c => c.meta_campaign_id).map(c => [c.meta_campaign_id!, c]))
 
     let created = 0
     let updated = 0
-    const now = new Date()
 
     for (const mc of metaCampaigns) {
       const spend = spendMap.get(mc.id) ?? 0
       const status = mapMetaStatus(mc.status)
-      // Meta returns daily_budget in cents/agorot — divide by 100 for shekels
       const dailyBudget = mc.daily_budget ? Number(mc.daily_budget) / 100 : 0
 
       const existing = metaIdMap.get(mc.id)
@@ -121,9 +157,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           last_synced_at: now,
         }).where(eq(campaigns.id, existing.id))
         updated++
-      } else if (status === 'active') {
-        // Only create NEW campaigns if they are active
-        // Don't auto-import paused campaigns we never tracked
+      } else {
+        // Create new campaign
         const startDate = mc.start_time ? mc.start_time.split('T')[0] : new Date().toISOString().split('T')[0]
         const endDate = mc.stop_time ? mc.stop_time.split('T')[0] : null
 
@@ -150,7 +185,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           })
         }
 
-        // Changelog entry
+        // Changelog
         await db.insert(changelog).values({
           campaign_id: newCampaign.id,
           action: 'campaign_added',
@@ -159,21 +194,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
 
         created++
-      }
-    }
-
-    // Update spend for campaigns that had spend this month but aren't ACTIVE/PAUSED anymore
-    const metaCampaignIds = new Set(metaCampaigns.map(mc => mc.id))
-    for (const insight of metaInsights) {
-      if (!metaCampaignIds.has(insight.campaign_id)) {
-        const existing = metaIdMap.get(insight.campaign_id)
-        if (existing) {
-          await db.update(campaigns).set({
-            actual_spend: String(Number(insight.spend) || 0),
-            last_synced_at: now,
-          }).where(eq(campaigns.id, existing.id))
-          updated++
-        }
       }
     }
 
