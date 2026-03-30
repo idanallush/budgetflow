@@ -25,16 +25,6 @@ interface MetaInsight {
   date_stop: string
 }
 
-interface TopAd {
-  ad_id: string
-  ad_name: string
-  spend: number
-  preview_url: string | null
-}
-
-/**
- * Fetch insights for the current month — source of truth for which campaigns had activity.
- */
 async function fetchMonthlyInsights(adAccountId: string, accessToken: string): Promise<MetaInsight[]> {
   const now = new Date()
   const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
@@ -50,9 +40,6 @@ async function fetchMonthlyInsights(adAccountId: string, accessToken: string): P
   return data.data ?? []
 }
 
-/**
- * Fetch campaign details for specific campaign IDs using Meta batch lookup.
- */
 async function fetchCampaignDetails(campaignIds: string[], accessToken: string): Promise<MetaCampaign[]> {
   const results: MetaCampaign[] = []
 
@@ -74,37 +61,9 @@ async function fetchCampaignDetails(campaignIds: string[], accessToken: string):
   return results
 }
 
-/**
- * Fetch the top ad (by spend) for a campaign this month and get its preview URL.
- */
-async function fetchTopAdForCampaign(
-  campaignId: string,
-  accessToken: string,
-  monthStart: string,
-  today: string
-): Promise<TopAd | null> {
-  const url = `${META_BASE_URL}/${campaignId}/insights?fields=ad_id,ad_name,spend&level=ad&time_range={"since":"${monthStart}","until":"${today}"}&sort=spend_descending&limit=1&access_token=${accessToken}`
-  const res = await fetch(url)
-  if (!res.ok) return null
-
-  const data = await res.json()
-  const topInsight = data.data?.[0]
-  if (!topInsight) return null
-
-  const adUrl = `${META_BASE_URL}/${topInsight.ad_id}?fields=effective_object_story_id,preview_shareable_link&access_token=${accessToken}`
-  const adRes = await fetch(adUrl)
-  if (!adRes.ok) {
-    return { ad_id: topInsight.ad_id, ad_name: topInsight.ad_name, spend: Number(topInsight.spend), preview_url: null }
-  }
-
-  const adData = await adRes.json()
-  let previewUrl: string | null = adData.preview_shareable_link || null
-
-  if (!previewUrl && adData.effective_object_story_id) {
-    previewUrl = `https://www.facebook.com/${adData.effective_object_story_id}`
-  }
-
-  return { ad_id: topInsight.ad_id, ad_name: topInsight.ad_name, spend: Number(topInsight.spend), preview_url: previewUrl }
+function buildCampaignAdLink(campaignId: string, adAccountId: string): string {
+  const accountNum = adAccountId.replace('act_', '')
+  return `https://www.facebook.com/adsmanager/manage/ads?act=${accountNum}&campaign_ids=${campaignId}`
 }
 
 function mapMetaStatus(metaStatus: string): 'active' | 'paused' | 'stopped' {
@@ -140,10 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!accountId) return error(res, 'No Meta Ad Account ID configured for this client')
 
     const now = new Date()
-    const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-    const todayStr = now.toISOString().split('T')[0]
 
-    // Step 1: Fetch insights — source of truth for "active this month"
     const monthlyInsights = await fetchMonthlyInsights(accountId, accessToken)
 
     const activeInsights = monthlyInsights.filter(
@@ -167,11 +123,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       spendMap.set(insight.campaign_id, Number(insight.spend) || 0)
     }
 
-    // Step 2: Fetch campaign details only for active campaigns
     const activeCampaignIds = activeInsights.map((i) => i.campaign_id)
     const metaCampaigns = await fetchCampaignDetails(activeCampaignIds, accessToken)
 
-    // Step 3: Get existing campaigns for this client
     const existingCampaigns = await db.select().from(campaigns).where(eq(campaigns.client_id, client_id))
     const metaIdMap = new Map(existingCampaigns.filter(c => c.meta_campaign_id).map(c => [c.meta_campaign_id!, c]))
 
@@ -181,16 +135,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const mc of metaCampaigns) {
       const spend = spendMap.get(mc.id) ?? 0
       const status = mapMetaStatus(mc.status)
-
-      // Top ad link
-      const topAd = await fetchTopAdForCampaign(mc.id, accessToken, firstDay, todayStr)
-      const adLink = topAd?.preview_url || null
+      const adLink = buildCampaignAdLink(mc.id, accountId)
 
       const existing = metaIdMap.get(mc.id)
 
       if (existing) {
-        // Update existing — actual_spend, status, ad_link, last_synced_at
-        // Does NOT touch daily_budget or budget_periods — those are manual
         await db.update(campaigns).set({
           actual_spend: String(spend),
           status,
@@ -199,9 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).where(eq(campaigns.id, existing.id))
         updated++
       } else {
-        // Create new campaign — without budget_period
-        // Daily budget will be set manually by the media buyer
-        const startDate = mc.start_time ? mc.start_time.split('T')[0] : todayStr
+        const startDate = mc.start_time ? mc.start_time.split('T')[0] : now.toISOString().split('T')[0]
         const endDate = mc.stop_time ? mc.stop_time.split('T')[0] : null
 
         const [newCampaign] = await db.insert(campaigns).values({

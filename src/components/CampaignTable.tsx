@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle, Trash2 } from 'lucide-react'
+import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle, Trash2, ExternalLink } from 'lucide-react'
 import type { CampaignWithBudget, Platform, CampaignStatus, ChangelogAction } from '@/types'
 import { useChangelog } from '@/hooks/useChangelog'
 import { StatusDropdown } from '@/components/StatusDropdown'
@@ -88,15 +88,8 @@ const platformLabels: Record<Platform, string> = {
   google: 'Google Ads',
 }
 
-const COL_COUNT = 10
+const COL_COUNT = 8
 
-/**
- * Returns urgency level for campaign end date:
- * 'expired' = date passed or is today
- * 'soon' = within 3 days
- * 'ok' = more than 3 days away
- * null = no end date set
- */
 const getEndDateUrgency = (endDate: string | null): 'expired' | 'soon' | 'ok' | null => {
   if (!endDate) return null
   const today = new Date()
@@ -144,8 +137,6 @@ export const CampaignTable = ({
 
   const totalDaily = platformCampaigns.reduce((sum, c) => sum + c.current_daily_budget, 0)
   const totalForecast = platformCampaigns.reduce((sum, c) => sum + c.monthly_forecast, 0)
-  const totalOriginal = platformCampaigns.reduce((sum, c) => sum + c.original_plan, 0)
-  const totalVariance = totalForecast - totalOriginal
   const totalActualSpend = platformCampaigns.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0)
 
   return (
@@ -170,8 +161,6 @@ export const CampaignTable = ({
               <th>תקציב יומי</th>
               <th>צפי חודשי</th>
               <th>הוצאה בפועל</th>
-              <th>תוכנית מקורית</th>
-              <th>הפרש</th>
               <th>פעולות</th>
             </tr>
           </thead>
@@ -181,7 +170,7 @@ export const CampaignTable = ({
               return (
                 <>
                   <tr key={campaign.id}>
-                    {/* Campaign name + changes badge */}
+                    {/* Campaign name + ad link + changes badge */}
                     <td>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
@@ -198,6 +187,17 @@ export const CampaignTable = ({
                             >
                               {campaign.budget_periods.length - 1} שינויים
                             </span>
+                          )}
+                          {campaign.ad_link && (
+                            <a
+                              href={campaign.ad_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-accent hover:text-white transition-colors"
+                              title="צפה ב-Ads Manager"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
                           )}
                         </div>
                         {!showTechnicalName && campaign.campaign_type && (
@@ -271,27 +271,6 @@ export const CampaignTable = ({
                       )}
                     </td>
 
-                    {/* Original plan */}
-                    <td className="text-text-secondary">
-                      {formatCurrency(campaign.original_plan)}
-                    </td>
-
-                    {/* Variance */}
-                    <td>
-                      {campaign.variance === 0 ? (
-                        <span className="text-text-muted text-xs">—</span>
-                      ) : (
-                        <span
-                          className={`chip text-xs ${
-                            campaign.variance > 0 ? 'status-stopped' : 'status-active'
-                          }`}
-                        >
-                          {campaign.variance > 0 ? '+' : ''}
-                          {formatCurrency(campaign.variance)}
-                        </span>
-                      )}
-                    </td>
-
                     {/* Action buttons */}
                     <td>
                       <div className="flex items-center gap-1">
@@ -341,19 +320,6 @@ export const CampaignTable = ({
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
               <td className="font-semibold">
                 {totalActualSpend > 0 ? formatCurrency(totalActualSpend) : '—'}
-              </td>
-              <td className="text-text-secondary">{formatCurrency(totalOriginal)}</td>
-              <td>
-                {totalVariance !== 0 && (
-                  <span
-                    className={`chip text-xs ${
-                      totalVariance > 0 ? 'status-stopped' : 'status-active'
-                    }`}
-                  >
-                    {totalVariance > 0 ? '+' : ''}
-                    {formatCurrency(totalVariance)}
-                  </span>
-                )}
               </td>
               <td></td>
             </tr>

@@ -77,8 +77,6 @@ export const ClientView = () => {
     .reduce((sum, c) => sum + c.monthly_forecast, 0) ?? 0
   const googleForecast = campaigns?.filter((c) => c.platform === 'google')
     .reduce((sum, c) => sum + c.monthly_forecast, 0) ?? 0
-  const totalOriginal = campaigns?.reduce((sum, c) => sum + c.original_plan, 0) ?? 0
-  const totalVariance = totalForecast - totalOriginal
   const now = new Date()
   const daysInMonth = getDaysInMonth(now.getFullYear(), now.getMonth())
   const daysPassed = now.getDate()
@@ -437,22 +435,10 @@ export const ClientView = () => {
                       <p className="text-xs text-text-muted">צפי חודשי</p>
                       <p className="text-xl font-semibold text-accent">{formatCurrency(totalForecast)}</p>
                     </div>
-                    <div className="text-end">
-                      <p className="text-xs text-text-muted">תוכנית מקורית</p>
-                      <p className="font-semibold text-text-secondary">{formatCurrency(totalOriginal)}</p>
-                    </div>
                     {totalActualSpend > 0 && (
                       <div className="text-end">
                         <p className="text-xs text-text-muted">הוצאה בפועל</p>
                         <p className="font-semibold">{formatCurrency(totalActualSpend)}</p>
-                      </div>
-                    )}
-                    {totalVariance !== 0 && (
-                      <div className="text-end">
-                        <p className="text-xs text-text-muted">הפרש</p>
-                        <span className={`chip text-xs ${totalVariance > 0 ? 'status-stopped' : 'status-active'}`}>
-                          {totalVariance > 0 ? '+' : ''}{formatCurrency(totalVariance)}
-                        </span>
                       </div>
                     )}
                   </div>
