@@ -212,3 +212,33 @@ export const useDeleteCampaign = () => {
     },
   })
 }
+
+export const useMetaSync = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: { client_id: string; ad_account_id?: string }) => {
+      const res = await fetch('/api/meta/sync', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Sync failed')
+      }
+      return res.json() as Promise<{
+        success: boolean
+        ad_account_id: string
+        total_meta_campaigns: number
+        created: number
+        updated: number
+        synced_at: string
+      }>
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', variables.client_id] })
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+    },
+  })
+}

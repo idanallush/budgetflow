@@ -88,7 +88,7 @@ const platformLabels: Record<Platform, string> = {
   google: 'Google Ads',
 }
 
-const COL_COUNT = 9
+const COL_COUNT = 10
 
 /**
  * Returns urgency level for campaign end date:
@@ -143,6 +143,7 @@ export const CampaignTable = ({
   const totalForecast = platformCampaigns.reduce((sum, c) => sum + c.monthly_forecast, 0)
   const totalOriginal = platformCampaigns.reduce((sum, c) => sum + c.original_plan, 0)
   const totalVariance = totalForecast - totalOriginal
+  const totalActualSpend = platformCampaigns.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0)
 
   return (
     <div className="mb-8">
@@ -165,6 +166,7 @@ export const CampaignTable = ({
               <th>סטטוס</th>
               <th>תקציב יומי</th>
               <th>צפי חודשי</th>
+              <th>הוצאה בפועל</th>
               <th>תוכנית מקורית</th>
               <th>הפרש</th>
               <th>פעולות</th>
@@ -257,6 +259,15 @@ export const CampaignTable = ({
                       {formatCurrency(campaign.monthly_forecast)}
                     </td>
 
+                    {/* Actual spend */}
+                    <td>
+                      {Number(campaign.actual_spend) > 0 ? (
+                        <span className="font-semibold">{formatCurrency(Number(campaign.actual_spend))}</span>
+                      ) : (
+                        <span className="text-text-muted text-xs">—</span>
+                      )}
+                    </td>
+
                     {/* Original plan */}
                     <td className="text-text-secondary">
                       {formatCurrency(campaign.original_plan)}
@@ -325,6 +336,9 @@ export const CampaignTable = ({
               <td colSpan={4}>סה״כ {platformLabels[platform]}</td>
               <td className="font-semibold">{formatCurrency(totalDaily)}</td>
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
+              <td className="font-semibold">
+                {totalActualSpend > 0 ? formatCurrency(totalActualSpend) : '—'}
+              </td>
               <td className="text-text-secondary">{formatCurrency(totalOriginal)}</td>
               <td>
                 {totalVariance !== 0 && (

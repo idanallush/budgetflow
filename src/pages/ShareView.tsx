@@ -18,6 +18,8 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
 
   const totalDaily = filtered.reduce((sum, c) => sum + c.current_daily_budget, 0)
   const totalForecast = filtered.reduce((sum, c) => sum + c.monthly_forecast, 0)
+  const totalActualSpend = filtered.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0)
+  const hasActualSpend = filtered.some((c) => Number(c.actual_spend) > 0)
 
   return (
     <div className="mb-6">
@@ -34,6 +36,7 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
               <th>סטטוס</th>
               <th>תקציב יומי</th>
               <th>תחזית חודשית</th>
+              {hasActualSpend && <th>הוצאה בפועל</th>}
             </tr>
           </thead>
           <tbody>
@@ -43,6 +46,11 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
                 <td><StatusBadge status={campaign.status} /></td>
                 <td>{formatCurrency(campaign.current_daily_budget)}</td>
                 <td className="font-semibold">{formatCurrency(campaign.monthly_forecast)}</td>
+                {hasActualSpend && (
+                  <td className="font-semibold">
+                    {Number(campaign.actual_spend) > 0 ? formatCurrency(Number(campaign.actual_spend)) : '—'}
+                  </td>
+                )}
               </tr>
             ))}
             <tr className="summary-row">
@@ -50,6 +58,9 @@ const ShareTable = ({ campaigns, platform }: { campaigns: CampaignWithBudget[]; 
               <td></td>
               <td className="font-semibold">{formatCurrency(totalDaily)}</td>
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
+              {hasActualSpend && (
+                <td className="font-semibold">{formatCurrency(totalActualSpend)}</td>
+              )}
             </tr>
           </tbody>
         </table>

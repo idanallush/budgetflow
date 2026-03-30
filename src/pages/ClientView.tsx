@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, History, Copy, ToggleLeft, ToggleRight, Pencil, Check, X, Wallet, Trash2 } from 'lucide-react'
+import { ArrowRight, Plus, History, Copy, ToggleLeft, ToggleRight, Pencil, Check, X, Wallet, Trash2, RefreshCw } from 'lucide-react'
 import { useClient, useDeleteClient } from '@/hooks/useClients'
-import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign } from '@/hooks/useCampaigns'
+import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { Button } from '@/components/ui/Button'
 import { MetricCard } from '@/components/ui/MetricCard'
@@ -14,7 +14,7 @@ import { EndDateEditDialog } from '@/components/EndDateEditDialog'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { toast } from '@/components/ui/Toast'
-import { formatCurrency, todayISO, getDaysInMonth } from '@/lib/format'
+import { formatCurrency, formatDateTime, todayISO, getDaysInMonth } from '@/lib/format'
 import type { CampaignWithBudget, CampaignStatus } from '@/types'
 
 const hebrewMonths = [
@@ -35,6 +35,7 @@ export const ClientView = () => {
   const updateStatus = useUpdateCampaignStatus()
   const deleteCampaign = useDeleteCampaign()
   const deleteClient = useDeleteClient()
+  const metaSync = useMetaSync()
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithBudget | null>(null)
@@ -83,6 +84,11 @@ export const ClientView = () => {
   const daysPassed = now.getDate()
   const daysRemaining = daysInMonth - daysPassed
   const monthProgress = Math.round((daysPassed / daysInMonth) * 100)
+
+  const totalActualSpend = campaigns?.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0) ?? 0
+  const lastSyncedCampaign = campaigns
+    ?.filter((c) => c.last_synced_at)
+    .sort((a, b) => new Date(b.last_synced_at!).getTime() - new Date(a.last_synced_at!).getTime())[0]
 
   const hasCampaigns = campaigns && campaigns.length > 0
   const hasFb = campaigns?.some((c) => c.platform === 'facebook')
@@ -133,6 +139,25 @@ export const ClientView = () => {
     }
   }
 
+  const handleSync = async () => {
+    if (!client) return
+    let adAccountId = client.meta_ad_account_id
+    if (!adAccountId) {
+      const input = prompt('הזן Meta Ad Account ID (למשל: act_123456789):')
+      if (!input) return
+      adAccountId = input
+    }
+    try {
+      const result = await metaSync.mutateAsync({
+        client_id: client.id,
+        ad_account_id: adAccountId || undefined,
+      })
+      toast.success(`סונכרנו ${result.created} חדשים, ${result.updated} עודכנו`)
+    } catch (err) {
+      toast.error(`שגיאת סנכרון: ${(err as Error).message}`)
+    }
+  }
+
   if (!isLoading && !client) {
     return (
       <GlassPanel className="p-8 text-center">
@@ -172,6 +197,10 @@ export const ClientView = () => {
           <Button variant="ghost" onClick={copyShareLink}>
             <Copy size={16} />
             קישור שיתוף
+          </Button>
+          <Button variant="ghost" onClick={handleSync} disabled={metaSync.isPending}>
+            <RefreshCw size={16} className={metaSync.isPending ? 'animate-spin' : ''} />
+            {metaSync.isPending ? 'מסנכרן...' : 'סנכרן Meta'}
           </Button>
           <Button onClick={() => setShowAddModal(true)}>
             <Plus size={18} />
@@ -299,6 +328,15 @@ export const ClientView = () => {
             </div>
           </div>
         </div>
+
+        {/* Last sync indicator */}
+        {lastSyncedCampaign && (
+          <div className="flex items-center justify-end pt-2">
+            <span className="text-xs text-text-muted">
+              סנכרון Meta אחרון: {formatDateTime(lastSyncedCampaign.last_synced_at!)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -380,6 +418,12 @@ export const ClientView = () => {
                       <p className="text-xs text-text-muted">תוכנית מקורית</p>
                       <p className="font-semibold text-text-secondary">{formatCurrency(totalOriginal)}</p>
                     </div>
+                    {totalActualSpend > 0 && (
+                      <div className="text-end">
+                        <p className="text-xs text-text-muted">הוצאה בפועל</p>
+                        <p className="font-semibold">{formatCurrency(totalActualSpend)}</p>
+                      </div>
+                    )}
                     {totalVariance !== 0 && (
                       <div className="text-end">
                         <p className="text-xs text-text-muted">הפרש</p>
