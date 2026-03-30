@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, History, Copy, Pencil, Check, X, Wallet, Trash2, RefreshCw } from 'lucide-react'
+import { ArrowRight, Plus, History, Copy, Check, X, Trash2, RefreshCw } from 'lucide-react'
 import { useClient, useDeleteClient } from '@/hooks/useClients'
 import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync, useGoogleSync } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
@@ -244,156 +244,121 @@ export const ClientView = () => {
         </div>
       </div>
 
-      {/* Monthly budget goal */}
-      <div className="glass-card p-4 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0">
-            <Wallet size={18} className="text-accent" />
+      {/* Monthly Budget Panel */}
+      <GlassPanel className="p-5">
+        {/* Row 1: Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-text-secondary">
+              תקציב לחודש {hebrewMonths[now.getMonth()]} {now.getFullYear()}
+            </span>
+            <span className="text-xs text-text-muted">({dateRangeText})</span>
           </div>
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <p className="text-xs text-text-muted">
-                תקציב לחודש {hebrewMonths[now.getMonth()]} {now.getFullYear()}
-              </p>
-              <span className="text-xs text-text-muted">({dateRangeText})</span>
+          <div className="flex items-center gap-3">
+            {client?.meta_ad_account_id && (
               <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${client?.meta_ad_account_id ? 'bg-success' : ''}`} style={!client?.meta_ad_account_id ? { background: 'rgba(255,255,255,0.2)' } : undefined} />
+                <div className="w-1.5 h-1.5 rounded-full bg-success" />
                 <span className="text-xs text-text-muted">Meta</span>
               </div>
+            )}
+            {client?.google_customer_id && (
               <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${client?.google_customer_id ? 'bg-success' : ''}`} style={!client?.google_customer_id ? { background: 'rgba(255,255,255,0.2)' } : undefined} />
+                <div className="w-1.5 h-1.5 rounded-full bg-success" />
                 <span className="text-xs text-text-muted">Google</span>
               </div>
-            </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Three big numbers */}
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="text-center">
+            <p className="text-xs text-text-muted mb-1">תקציב מוסכם</p>
             {editingGoal ? (
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center justify-center gap-1">
                 <input
-                  className="glass-input !py-1.5 !px-3 !text-sm w-32"
+                  className="glass-input !py-1 !px-2 !text-sm w-24 text-center"
                   type="number"
-                  placeholder="₪50,000"
+                  placeholder="50000"
                   value={goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
                   autoFocus
                   onKeyDown={(e) => { if (e.key === 'Enter') saveGoal(); if (e.key === 'Escape') setEditingGoal(false) }}
                 />
-                <Button variant="icon" className="!w-7 !h-7" onClick={saveGoal}><Check size={14} className="text-success" /></Button>
-                <Button variant="icon" className="!w-7 !h-7" onClick={() => setEditingGoal(false)}><X size={14} /></Button>
+                <Button variant="icon" className="!w-6 !h-6" onClick={saveGoal}><Check size={12} className="text-success" /></Button>
+                <Button variant="icon" className="!w-6 !h-6" onClick={() => setEditingGoal(false)}><X size={12} /></Button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold">
-                  {monthlyBudgetGoal ? formatCurrency(monthlyBudgetGoal) : 'לא הוגדר'}
-                </span>
-                <button
-                  className="btn-icon !w-7 !h-7"
-                  onClick={() => { setGoalInput(monthlyBudgetGoal ? String(monthlyBudgetGoal) : ''); setEditingGoal(true) }}
-                  title="עריכת תקציב חודשי"
-                >
-                  <Pencil size={12} />
-                </button>
-              </div>
+              <button
+                className="text-xl font-semibold bg-transparent border-none cursor-pointer p-0 hover:text-accent transition-colors"
+                onClick={() => { setGoalInput(monthlyBudgetGoal ? String(monthlyBudgetGoal) : ''); setEditingGoal(true) }}
+                title="עריכת תקציב מוסכם"
+              >
+                {monthlyBudgetGoal ? formatCurrency(monthlyBudgetGoal) : '—'}
+              </button>
             )}
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-text-muted mb-1">צפי חודשי</p>
+            <p className="text-xl font-semibold text-accent">{formatCurrency(totalForecast)}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-text-muted mb-1">הוצאה בפועל</p>
+            <p className="text-xl font-semibold">
+              {totalActualSpend > 0 ? formatCurrency(totalActualSpend) : '—'}
+            </p>
           </div>
         </div>
 
-        {/* Forecast vs goal comparison */}
-        {monthlyBudgetGoal && hasCampaigns && (
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="text-end">
-              <p className="text-xs text-text-muted">צפי מול יעד</p>
-              <p className="font-semibold">
-                {formatCurrency(totalForecast)} / {formatCurrency(monthlyBudgetGoal)}
-              </p>
-            </div>
-            {totalActualSpend > 0 && (
-              <div className="text-end">
-                <p className="text-xs text-text-muted">הוצאה בפועל עד היום</p>
-                <p className="font-semibold">{formatCurrency(totalActualSpend)}</p>
-              </div>
-            )}
-            <div className="text-end">
-              <p className="text-xs text-text-muted">פער</p>
-              {(() => {
-                const diff = totalForecast - monthlyBudgetGoal
-                return (
-                  <span className={`chip text-xs ${diff > 0 ? 'status-stopped' : diff < 0 ? 'status-active' : ''}`}>
-                    {diff > 0 ? '+' : ''}{formatCurrency(diff)}
-                  </span>
-                )
-              })()}
-            </div>
-          </div>
-        )}
-
-        {/* Days info row */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0 0' }} />
-        <div className="flex items-center gap-4 pt-4 flex-wrap">
-          {/* Mini progress ring */}
-          <div className="shrink-0" style={{ width: 48, height: 48 }}>
-            <svg viewBox="0 0 48 48" style={{ width: '100%', height: '100%' }}>
-              <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
-              <circle
-                cx="24" cy="24" r="20" fill="none"
-                stroke="var(--color-accent)" strokeWidth="4" strokeLinecap="round"
-                strokeDasharray={`${(daysPassed / daysInMonth) * 125.6} 125.6`}
-                transform="rotate(-90 24 24)"
-                style={{ transition: 'stroke-dasharray 0.5s ease' }}
-              />
-              <text x="24" y="24" textAnchor="middle" dominantBaseline="central"
-                fill="rgba(255,255,255,0.9)" fontSize="13" fontWeight="600" fontFamily="var(--font-sans)">
-                {daysPassed}
-              </text>
-            </svg>
-          </div>
-
-          {/* Day metrics */}
-          <div className="flex items-center gap-6 flex-1">
-            <div className="text-center">
-              <p className="text-xs text-text-muted mb-1">ימים בחודש</p>
-              <p className="text-lg font-semibold">{daysInMonth}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-text-muted mb-1">ימים שעברו</p>
-              <p className="text-lg font-semibold text-accent">{daysPassed}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-text-muted mb-1">ימים שנשארו</p>
-              <p className="text-lg font-semibold">{daysRemaining}</p>
-            </div>
-          </div>
-
-          {/* Linear progress bar */}
-          <div className="flex-1 max-w-[200px]">
+        {/* Row 3: Progress + Days */}
+        <div className="flex items-center gap-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-text-muted">התקדמות החודש</span>
               <span className="text-xs font-semibold">{monthProgress}%</span>
             </div>
-            <div className="w-full h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-              <div
-                className="h-1.5 rounded-full"
-                style={{
-                  width: `${monthProgress}%`,
-                  background: 'var(--color-accent)',
-                  transition: 'width 0.5s ease',
-                }}
-              />
+            <div className="w-full h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="h-1 rounded-full" style={{ width: `${monthProgress}%`, background: 'var(--color-accent)' }} />
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-text-secondary">
+            <div className="text-center">
+              <p className="font-semibold text-sm">{daysInMonth}</p>
+              <p>ימים</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-sm text-accent">{daysPassed}</p>
+              <p>עברו</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-sm">{daysRemaining}</p>
+              <p>נשארו</p>
             </div>
           </div>
         </div>
 
-        {/* Last sync indicator */}
-        {lastSyncedCampaign && (
-          <div className="flex items-center justify-end pt-2">
+        {/* Row 4: Footer */}
+        <div className="flex items-center justify-between mt-3 pt-2">
+          {lastSyncedCampaign ? (
             <span className="text-xs text-text-muted">
-              סנכרון Meta אחרון: {formatDateTime(lastSyncedCampaign.last_synced_at!)}
+              סנכרון אחרון: {formatDateTime(lastSyncedCampaign.last_synced_at!)}
             </span>
-          </div>
-        )}
-      </div>
+          ) : <span />}
+          {monthlyBudgetGoal && monthlyBudgetGoal > 0 && (() => {
+            const diff = totalForecast - monthlyBudgetGoal
+            const isOver = diff > 0
+            return (
+              <span className={`chip text-xs ${isOver ? 'status-stopped' : 'status-active'}`}>
+                {isOver ? `חריגה: +${formatCurrency(diff)}` : `נותר: ${formatCurrency(Math.abs(diff))}`}
+              </span>
+            )
+          })()}
+        </div>
+      </GlassPanel>
 
-      {/* Stats */}
+      {/* Metric Cards */}
       {hasCampaigns && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MetricCard label="תקציב יומי" value={formatCurrency(totalDaily)} />
           <MetricCard label="צפי חודשי" value={formatCurrency(totalForecast)} />
           <MetricCard label="Meta" value={formatCurrency(fbForecast)} />
