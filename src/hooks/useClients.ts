@@ -65,6 +65,7 @@ export const useCreateClient = () => {
           created_at: new Date().toISOString(),
           notes: input.notes ?? null,
           meta_ad_account_id: null,
+          google_customer_id: null,
         }
         demoClients.push(newClient)
         return newClient

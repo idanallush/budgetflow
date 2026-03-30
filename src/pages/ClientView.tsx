@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Plus, History, Copy, ToggleLeft, ToggleRight, Pencil, Check, X, Wallet, Trash2, RefreshCw } from 'lucide-react'
 import { useClient, useDeleteClient } from '@/hooks/useClients'
-import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync } from '@/hooks/useCampaigns'
+import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync, useGoogleSync } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { Button } from '@/components/ui/Button'
 import { MetricCard } from '@/components/ui/MetricCard'
@@ -36,6 +36,7 @@ export const ClientView = () => {
   const deleteCampaign = useDeleteCampaign()
   const deleteClient = useDeleteClient()
   const metaSync = useMetaSync()
+  const googleSync = useGoogleSync()
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithBudget | null>(null)
@@ -159,6 +160,25 @@ export const ClientView = () => {
     }
   }
 
+  const handleGoogleSync = async () => {
+    if (!client) return
+    let customerId = client.google_customer_id
+    if (!customerId) {
+      const input = prompt('הזן Google Ads Customer ID (10 ספרות, בלי מקפים):')
+      if (!input) return
+      customerId = input.replace(/-/g, '')
+    }
+    try {
+      const result = await googleSync.mutateAsync({
+        client_id: client.id,
+        google_customer_id: customerId || undefined,
+      })
+      toast.success(`Google: ${result.created} חדשים, ${result.updated} עודכנו`)
+    } catch (err) {
+      toast.error(`שגיאת Google: ${(err as Error).message}`)
+    }
+  }
+
   if (!isLoading && !client) {
     return (
       <GlassPanel className="p-8 text-center">
@@ -203,6 +223,10 @@ export const ClientView = () => {
             <RefreshCw size={16} className={metaSync.isPending ? 'animate-spin' : ''} />
             {metaSync.isPending ? 'מסנכרן...' : 'סנכרן Meta'}
           </Button>
+          <Button variant="ghost" onClick={handleGoogleSync} disabled={googleSync.isPending}>
+            <RefreshCw size={16} className={googleSync.isPending ? 'animate-spin' : ''} />
+            {googleSync.isPending ? 'מסנכרן...' : 'סנכרן Google'}
+          </Button>
           <Button onClick={() => setShowAddModal(true)}>
             <Plus size={18} />
             הוסף קמפיין
@@ -222,17 +246,14 @@ export const ClientView = () => {
                 תקציב לחודש {hebrewMonths[now.getMonth()]} {now.getFullYear()}
               </p>
               <span className="text-xs text-text-muted">({dateRangeText})</span>
-              {client?.meta_ad_account_id ? (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-success" />
-                  <span className="text-xs text-text-muted">Meta מחובר</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }} />
-                  <span className="text-xs text-text-muted">Meta לא מחובר</span>
-                </div>
-              )}
+              <div className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${client?.meta_ad_account_id ? 'bg-success' : ''}`} style={!client?.meta_ad_account_id ? { background: 'rgba(255,255,255,0.2)' } : undefined} />
+                <span className="text-xs text-text-muted">Meta</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${client?.google_customer_id ? 'bg-success' : ''}`} style={!client?.google_customer_id ? { background: 'rgba(255,255,255,0.2)' } : undefined} />
+                <span className="text-xs text-text-muted">Google</span>
+              </div>
             </div>
             {editingGoal ? (
               <div className="flex items-center gap-2 mt-1">

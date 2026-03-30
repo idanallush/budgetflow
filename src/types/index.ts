@@ -35,6 +35,7 @@ export interface Client {
   created_at: string
   notes: string | null
   meta_ad_account_id: string | null
+  google_customer_id: string | null
 }
 
 export interface Campaign {

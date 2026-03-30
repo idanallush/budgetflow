@@ -242,3 +242,33 @@ export const useMetaSync = () => {
     },
   })
 }
+
+export const useGoogleSync = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: { client_id: string; google_customer_id?: string }) => {
+      const res = await fetch('/api/google/sync', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Google sync failed')
+      }
+      return res.json() as Promise<{
+        success: boolean
+        google_customer_id: string
+        total_campaigns: number
+        created: number
+        updated: number
+        synced_at: string
+      }>
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', variables.client_id] })
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+    },
+  })
+}
