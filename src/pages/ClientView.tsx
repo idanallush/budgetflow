@@ -162,16 +162,27 @@ export const ClientView = () => {
 
   const handleGoogleSync = async () => {
     if (!client) return
+
     let customerId = client.google_customer_id
+    let mccId = client.google_mcc_id
+
     if (!customerId) {
       const input = prompt('הזן Google Ads Customer ID (10 ספרות, בלי מקפים):')
       if (!input) return
       customerId = input.replace(/-/g, '')
     }
+
+    if (!mccId) {
+      const input = prompt('הזן Google MCC ID (10 ספרות, בלי מקפים):')
+      if (!input) return
+      mccId = input.replace(/-/g, '')
+    }
+
     try {
       const result = await googleSync.mutateAsync({
         client_id: client.id,
         google_customer_id: customerId || undefined,
+        google_mcc_id: mccId || undefined,
       })
       toast.success(`Google: ${result.created} חדשים, ${result.updated} עודכנו`)
     } catch (err) {

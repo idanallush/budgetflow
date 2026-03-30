@@ -19,6 +19,7 @@ export const clients = pgTable('clients', {
   notes: text('notes'),
   meta_ad_account_id: text('meta_ad_account_id'),
   google_customer_id: text('google_customer_id'),
+  google_mcc_id: text('google_mcc_id'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('idx_clients_slug').on(table.slug),

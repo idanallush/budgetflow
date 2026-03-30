@@ -115,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── Google Ads fields ──
     await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_customer_id text DEFAULT NULL`
+    await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_mcc_id text DEFAULT NULL`
 
     return res.status(200).json({
       success: true,

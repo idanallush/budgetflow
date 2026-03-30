@@ -66,6 +66,7 @@ export const useCreateClient = () => {
           notes: input.notes ?? null,
           meta_ad_account_id: null,
           google_customer_id: null,
+          google_mcc_id: null,
         }
         demoClients.push(newClient)
         return newClient

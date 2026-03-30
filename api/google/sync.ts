@@ -36,9 +36,9 @@ async function getAccessToken(): Promise<string> {
 async function queryGoogleAds(
   customerId: string,
   accessToken: string,
-  query: string
+  query: string,
+  loginCustomerId: string
 ): Promise<Record<string, unknown>[]> {
-  const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID!
   const cleanCustomerId = customerId.replace(/-/g, '')
 
   const url = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${cleanCustomerId}/googleAds:searchStream`
@@ -94,7 +94,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'GOOGLE_ADS_CLIENT_ID',
     'GOOGLE_ADS_CLIENT_SECRET',
     'GOOGLE_ADS_REFRESH_TOKEN',
-    'GOOGLE_ADS_LOGIN_CUSTOMER_ID',
   ]
   for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
@@ -102,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const { client_id, google_customer_id } = req.body ?? {}
+  const { client_id, google_customer_id, google_mcc_id } = req.body ?? {}
   if (!client_id) return error(res, 'client_id is required')
 
   try {
@@ -111,6 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const [client] = await db.select().from(clients).where(eq(clients.id, client_id)).limit(1)
     if (!client) return error(res, 'Client not found', 404)
 
+    // Determine Customer ID
     let customerId = client.google_customer_id
     if (google_customer_id) {
       const cleaned = google_customer_id.replace(/-/g, '')
@@ -118,6 +118,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       customerId = cleaned
     }
     if (!customerId) return error(res, 'No Google Ads Customer ID configured for this client')
+
+    // Determine MCC ID (login-customer-id) — per client, fallback to env
+    let mccId = client.google_mcc_id
+    if (google_mcc_id) {
+      const cleanedMcc = google_mcc_id.replace(/-/g, '')
+      await db.update(clients).set({ google_mcc_id: cleanedMcc }).where(eq(clients.id, client_id))
+      mccId = cleanedMcc
+    }
+    if (!mccId) {
+      mccId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || null
+    }
+    if (!mccId) return error(res, 'No Google MCC ID configured for this client')
 
     const accessToken = await getAccessToken()
 
@@ -138,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         AND metrics.impressions > 0
     `
 
-    const rows = await queryGoogleAds(customerId, accessToken, query)
+    const rows = await queryGoogleAds(customerId, accessToken, query, mccId)
 
     // Aggregate per campaign (rows are per-day due to segments.date)
     const campaignMap = new Map<string, {

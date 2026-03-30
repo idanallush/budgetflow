@@ -16,6 +16,7 @@ export const demoClients: Client[] = [
     notes: 'לקוח פרימיום, תקציב חודשי ₪45,000',
     meta_ad_account_id: null,
     google_customer_id: null,
+    google_mcc_id: null,
   },
   {
     id: '2',
@@ -27,6 +28,7 @@ export const demoClients: Client[] = [
     notes: null,
     meta_ad_account_id: null,
     google_customer_id: null,
+    google_mcc_id: null,
   },
   {
     id: '3',
@@ -38,6 +40,7 @@ export const demoClients: Client[] = [
     notes: 'מתמקדים בקמפיין שתלים',
     meta_ad_account_id: null,
     google_customer_id: null,
+    google_mcc_id: null,
   },
 ]
 

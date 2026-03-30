@@ -249,7 +249,7 @@ export const useGoogleSync = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { client_id: string; google_customer_id?: string }) => {
+    mutationFn: async (input: { client_id: string; google_customer_id?: string; google_mcc_id?: string }) => {
       const res = await fetch('/api/google/sync', {
         method: 'POST',
         headers: getAuthHeaders(),
