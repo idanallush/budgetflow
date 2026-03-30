@@ -102,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let created = 0
     let updated = 0
-    const now = new Date().toISOString()
+    const now = new Date()
 
     for (const mc of metaCampaigns) {
       const spend = spendMap.get(mc.id) ?? 0
@@ -166,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       total_meta_campaigns: metaCampaigns.length,
       created,
       updated,
-      synced_at: now,
+      synced_at: now.toISOString(),
     })
   } catch (err) {
     console.error('Meta sync error:', err)
