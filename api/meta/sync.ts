@@ -26,6 +26,13 @@ interface MetaInsight {
   date_stop: string
 }
 
+interface TopAd {
+  ad_id: string
+  ad_name: string
+  spend: number
+  preview_url: string | null
+}
+
 /**
  * Fetch insights for the current month — source of truth for which campaigns had activity.
  */
@@ -50,7 +57,6 @@ async function fetchMonthlyInsights(adAccountId: string, accessToken: string): P
 async function fetchCampaignDetails(campaignIds: string[], accessToken: string): Promise<MetaCampaign[]> {
   const results: MetaCampaign[] = []
 
-  // Fetch in chunks of 50 to avoid URL length issues
   for (let i = 0; i < campaignIds.length; i += 50) {
     const chunk = campaignIds.slice(i, i + 50)
     const ids = chunk.join(',')
@@ -67,6 +73,63 @@ async function fetchCampaignDetails(campaignIds: string[], accessToken: string):
   }
 
   return results
+}
+
+/**
+ * Fetch adset-level budgets for ABO campaigns (where campaign daily_budget is 0).
+ * Sums daily_budget of all active/paused adsets and returns total in shekels.
+ */
+async function fetchAdsetBudgets(campaignId: string, accessToken: string): Promise<number> {
+  const filtering = encodeURIComponent(JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }]))
+  const url = `${META_BASE_URL}/${campaignId}/adsets?fields=daily_budget,effective_status&filtering=${filtering}&limit=500&access_token=${accessToken}`
+  const res = await fetch(url)
+  if (!res.ok) return 0
+
+  const data = await res.json()
+  const adsets = data.data ?? []
+
+  let totalBudget = 0
+  for (const adset of adsets) {
+    if (adset.daily_budget) {
+      totalBudget += Number(adset.daily_budget)
+    }
+  }
+  // Return in shekels (Meta stores in cents/agorot)
+  return totalBudget / 100
+}
+
+/**
+ * Fetch the top ad (by spend) for a campaign this month and get its preview URL.
+ */
+async function fetchTopAdForCampaign(
+  campaignId: string,
+  accessToken: string,
+  monthStart: string,
+  today: string
+): Promise<TopAd | null> {
+  const url = `${META_BASE_URL}/${campaignId}/insights?fields=ad_id,ad_name,spend&level=ad&time_range={"since":"${monthStart}","until":"${today}"}&sort=spend_descending&limit=1&access_token=${accessToken}`
+  const res = await fetch(url)
+  if (!res.ok) return null
+
+  const data = await res.json()
+  const topInsight = data.data?.[0]
+  if (!topInsight) return null
+
+  // Fetch ad creative for preview URL
+  const adUrl = `${META_BASE_URL}/${topInsight.ad_id}?fields=effective_object_story_id,preview_shareable_link&access_token=${accessToken}`
+  const adRes = await fetch(adUrl)
+  if (!adRes.ok) {
+    return { ad_id: topInsight.ad_id, ad_name: topInsight.ad_name, spend: Number(topInsight.spend), preview_url: null }
+  }
+
+  const adData = await adRes.json()
+  let previewUrl: string | null = adData.preview_shareable_link || null
+
+  if (!previewUrl && adData.effective_object_story_id) {
+    previewUrl = `https://www.facebook.com/${adData.effective_object_story_id}`
+  }
+
+  return { ad_id: topInsight.ad_id, ad_name: topInsight.ad_name, spend: Number(topInsight.spend), preview_url: previewUrl }
 }
 
 function mapMetaStatus(metaStatus: string): 'active' | 'paused' | 'stopped' {
@@ -104,6 +167,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!accountId) return error(res, 'No Meta Ad Account ID configured for this client')
 
     const now = new Date()
+    const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const todayStr = now.toISOString().split('T')[0]
 
     // Step 1: Fetch insights — source of truth for "active this month"
     const monthlyInsights = await fetchMonthlyInsights(accountId, accessToken)
@@ -145,7 +210,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const mc of metaCampaigns) {
       const spend = spendMap.get(mc.id) ?? 0
       const status = mapMetaStatus(mc.status)
-      const dailyBudget = mc.daily_budget ? Number(mc.daily_budget) / 100 : 0
+
+      // Budget: try campaign-level first, fallback to adset-level (ABO)
+      let dailyBudget = mc.daily_budget ? Number(mc.daily_budget) / 100 : 0
+      if (dailyBudget === 0) {
+        dailyBudget = await fetchAdsetBudgets(mc.id, accessToken)
+      }
+
+      // Top ad link
+      const topAd = await fetchTopAdForCampaign(mc.id, accessToken, firstDay, todayStr)
+      const adLink = topAd?.preview_url || null
 
       const existing = metaIdMap.get(mc.id)
 
@@ -154,12 +228,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await db.update(campaigns).set({
           actual_spend: String(spend),
           status,
+          ad_link: adLink,
           last_synced_at: now,
         }).where(eq(campaigns.id, existing.id))
         updated++
       } else {
         // Create new campaign
-        const startDate = mc.start_time ? mc.start_time.split('T')[0] : new Date().toISOString().split('T')[0]
+        const startDate = mc.start_time ? mc.start_time.split('T')[0] : todayStr
         const endDate = mc.stop_time ? mc.stop_time.split('T')[0] : null
 
         const [newCampaign] = await db.insert(campaigns).values({
@@ -170,6 +245,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           campaign_type: mc.objective || null,
           meta_campaign_id: mc.id,
           actual_spend: String(spend),
+          ad_link: adLink,
           status,
           start_date: startDate,
           end_date: endDate,
