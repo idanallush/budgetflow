@@ -4,7 +4,7 @@ import { getDb } from '../_lib/db.js'
 import { clients, campaigns, changelog } from '../_lib/schema.js'
 import { json, error, methodNotAllowed, handleCors } from '../_lib/api-helpers.js'
 
-const GOOGLE_ADS_API_VERSION = 'v18'
+const GOOGLE_ADS_API_VERSION = 'v23'
 
 interface GoogleTokenResponse {
   access_token: string
