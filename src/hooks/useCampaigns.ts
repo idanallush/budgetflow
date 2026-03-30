@@ -106,6 +106,7 @@ export const useUpdateBudget = () => {
       client_id: string
       new_budget: number
       effective_date: string
+      end_date?: string
       old_budget: number
     }) => {
       if (isDemoMode()) {
@@ -122,7 +123,7 @@ export const useUpdateBudget = () => {
           campaign_id: input.campaign_id,
           daily_budget: input.new_budget,
           start_date: input.effective_date,
-          end_date: null,
+          end_date: input.end_date ?? null,
           created_by: null,
           created_at: new Date().toISOString(),
         })
@@ -136,6 +137,7 @@ export const useUpdateBudget = () => {
           action: 'budget',
           new_budget: input.new_budget,
           effective_date: input.effective_date,
+          end_date: input.end_date,
           old_budget: input.old_budget,
         }),
       })

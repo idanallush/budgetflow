@@ -19,12 +19,14 @@ export const BudgetEditDialog = ({ open, onClose, campaign, clientId }: BudgetEd
   const updateBudget = useUpdateBudget()
   const [newBudget, setNewBudget] = useState('')
   const [effectiveDate, setEffectiveDate] = useState(todayISO())
+  const [endDate, setEndDate] = useState('')
 
   // Reset form when opening
   useEffect(() => {
     if (open) {
       setNewBudget('')
       setEffectiveDate(todayISO())
+      setEndDate('')
     }
   }, [open])
 
@@ -39,6 +41,7 @@ export const BudgetEditDialog = ({ open, onClose, campaign, clientId }: BudgetEd
         client_id: clientId,
         new_budget: amount,
         effective_date: effectiveDate,
+        end_date: endDate || undefined,
         old_budget: campaign.current_daily_budget,
       })
       toast.success(
@@ -90,6 +93,14 @@ export const BudgetEditDialog = ({ open, onClose, campaign, clientId }: BudgetEd
           type="date"
           value={effectiveDate}
           onChange={(e) => setEffectiveDate(e.target.value)}
+        />
+
+        {/* Optional end date */}
+        <Input
+          label="עד תאריך (אופציונלי)"
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
         />
 
         {/* Change preview */}

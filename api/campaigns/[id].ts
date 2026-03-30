@@ -55,6 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           campaign_id: id,
           daily_budget: String(new_budget),
           start_date: effective_date,
+          end_date: body.end_date || null,
         }).returning()
 
         await db.insert(changelog).values({
