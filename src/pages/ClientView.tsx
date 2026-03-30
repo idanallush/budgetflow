@@ -84,6 +84,9 @@ export const ClientView = () => {
   const daysPassed = now.getDate()
   const daysRemaining = daysInMonth - daysPassed
   const monthProgress = Math.round((daysPassed / daysInMonth) * 100)
+  const monthStr = String(now.getMonth() + 1).padStart(2, '0')
+  const yearStr = String(now.getFullYear()).slice(2)
+  const dateRangeText = `01.${monthStr}.${yearStr} — ${daysInMonth}.${monthStr}.${yearStr}`
 
   const totalActualSpend = campaigns?.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0) ?? 0
   const lastSyncedCampaign = campaigns
@@ -216,9 +219,23 @@ export const ClientView = () => {
             <Wallet size={18} className="text-accent" />
           </div>
           <div>
-            <p className="text-xs text-text-muted">
-              תקציב לחודש {hebrewMonths[new Date().getMonth()]} {new Date().getFullYear()}
-            </p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="text-xs text-text-muted">
+                תקציב לחודש {hebrewMonths[now.getMonth()]} {now.getFullYear()}
+              </p>
+              <span className="text-xs text-text-muted">({dateRangeText})</span>
+              {client?.meta_ad_account_id ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-success" />
+                  <span className="text-xs text-text-muted">Meta מחובר</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }} />
+                  <span className="text-xs text-text-muted">Meta לא מחובר</span>
+                </div>
+              )}
+            </div>
             {editingGoal ? (
               <div className="flex items-center gap-2 mt-1">
                 <input
@@ -252,13 +269,19 @@ export const ClientView = () => {
 
         {/* Forecast vs goal comparison */}
         {monthlyBudgetGoal && hasCampaigns && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="text-end">
               <p className="text-xs text-text-muted">צפי מול יעד</p>
               <p className="font-semibold">
                 {formatCurrency(totalForecast)} / {formatCurrency(monthlyBudgetGoal)}
               </p>
             </div>
+            {totalActualSpend > 0 && (
+              <div className="text-end">
+                <p className="text-xs text-text-muted">הוצאה בפועל עד היום</p>
+                <p className="font-semibold">{formatCurrency(totalActualSpend)}</p>
+              </div>
+            )}
             <div className="text-end">
               <p className="text-xs text-text-muted">פער</p>
               {(() => {
