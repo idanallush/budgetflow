@@ -126,7 +126,10 @@ export const CampaignTable = ({
   showTechnicalName = false,
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const platformCampaigns = campaigns.filter((c) => c.platform === platform)
+  const statusOrder: Record<string, number> = { active: 0, paused: 1, stopped: 2 }
+  const platformCampaigns = campaigns
+    .filter((c) => c.platform === platform)
+    .sort((a, b) => (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3))
 
   if (platformCampaigns.length === 0) return null
 
