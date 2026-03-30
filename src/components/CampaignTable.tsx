@@ -80,7 +80,6 @@ interface CampaignTableProps {
   onStatusChange: (campaignId: string, status: CampaignStatus) => void
   onEndDateEdit: (campaign: CampaignWithBudget) => void
   onDeleteCampaign: (campaign: CampaignWithBudget) => void
-  showTechnicalName?: boolean
 }
 
 const platformLabels: Record<Platform, string> = {
@@ -116,9 +115,9 @@ export const CampaignTable = ({
   onStatusChange,
   onEndDateEdit,
   onDeleteCampaign,
-  showTechnicalName = false,
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [nameMode, setNameMode] = useState<'name' | 'technical'>('name')
   const statusOrder: Record<string, number> = { active: 0, paused: 1, stopped: 2 }
   const platformCampaigns = campaigns
     .filter((c) => c.platform === platform)
@@ -154,7 +153,16 @@ export const CampaignTable = ({
         <table className="glass-table">
           <thead>
             <tr>
-              <th>{showTechnicalName ? 'שם במערכת' : 'קמפיין'}</th>
+              <th>
+                <button
+                  className="flex items-center gap-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer bg-transparent border-none p-0 text-xs font-medium uppercase tracking-wider"
+                  onClick={() => setNameMode(prev => prev === 'name' ? 'technical' : 'name')}
+                  title="החלף בין שם קמפיין לשם טכני"
+                >
+                  {nameMode === 'name' ? 'קמפיין' : 'שם טכני'}
+                  <ChevronDown size={12} />
+                </button>
+              </th>
               <th>תאריך התחלה</th>
               <th>תאריך סיום</th>
               <th>סטטוס</th>
@@ -170,27 +178,25 @@ export const CampaignTable = ({
               return (
                 <>
                   <tr key={campaign.id}>
-                    {/* Campaign name + ad link + changes badge */}
+                    {/* Campaign name + changes badge */}
                     <td>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {showTechnicalName
-                              ? (campaign.technical_name || campaign.name)
-                              : campaign.name}
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2 flex-nowrap">
+                          <span className="font-medium truncate">
+                            {nameMode === 'name' ? campaign.name : (campaign.technical_name || campaign.name)}
                           </span>
                           {campaign.budget_periods.length > 1 && (
                             <span
-                              className="chip text-xs"
+                              className="chip text-xs shrink-0 whitespace-nowrap"
                               title={`${campaign.budget_periods.length - 1} שינויי תקציב`}
                               style={{ padding: '1px 6px', fontSize: '0.65rem' }}
                             >
-                              {campaign.budget_periods.length - 1} שינויים
+                              {campaign.budget_periods.length - 1}×
                             </span>
                           )}
                         </div>
-                        {!showTechnicalName && campaign.campaign_type && (
-                          <span className="text-xs text-text-muted mt-0.5">{campaign.campaign_type}</span>
+                        {nameMode === 'name' && campaign.campaign_type && (
+                          <span className="text-xs text-text-muted">{campaign.campaign_type}</span>
                         )}
                       </div>
                     </td>

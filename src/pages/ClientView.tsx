@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, History, Copy, ToggleLeft, ToggleRight, Pencil, Check, X, Wallet, Trash2, RefreshCw } from 'lucide-react'
+import { ArrowRight, Plus, History, Copy, Pencil, Check, X, Wallet, Trash2, RefreshCw } from 'lucide-react'
 import { useClient, useDeleteClient } from '@/hooks/useClients'
 import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync, useGoogleSync } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
@@ -43,7 +43,6 @@ export const ClientView = () => {
   const [budgetEditCampaign, setBudgetEditCampaign] = useState<CampaignWithBudget | null>(null)
   const [changelogCampaignId, setChangelogCampaignId] = useState<string | null>(null)
   const [showClientChangelog, setShowClientChangelog] = useState(false)
-  const [showTechnicalName, setShowTechnicalName] = useState(false)
   const [endDateCampaign, setEndDateCampaign] = useState<CampaignWithBudget | null>(null)
   const [deletingCampaign, setDeletingCampaign] = useState<CampaignWithBudget | null>(null)
   const [showDeleteClient, setShowDeleteClient] = useState(false)
@@ -404,18 +403,6 @@ export const ClientView = () => {
 
       {/* Campaign Tables */}
       <GlassPanel className="p-6">
-        {/* Name toggle */}
-        {hasCampaigns && (
-          <div className="flex items-center justify-end mb-4">
-            <button
-              className="btn-ghost !rounded-[10px] !px-3 !py-1.5 text-xs flex items-center gap-2"
-              onClick={() => setShowTechnicalName((v) => !v)}
-            >
-              {showTechnicalName ? <ToggleRight size={16} className="text-accent" /> : <ToggleLeft size={16} />}
-              {showTechnicalName ? 'שם במערכת' : 'שם קמפיין'}
-            </button>
-          </div>
-        )}
         {isLoading ? (
           <div className="flex flex-col gap-4">
             <SkeletonCard />
@@ -435,7 +422,6 @@ export const ClientView = () => {
                 onStatusChange={handleStatusChange}
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
-                showTechnicalName={showTechnicalName}
               />
             )}
 
@@ -449,7 +435,6 @@ export const ClientView = () => {
                 onStatusChange={handleStatusChange}
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
-                showTechnicalName={showTechnicalName}
               />
             )}
 
