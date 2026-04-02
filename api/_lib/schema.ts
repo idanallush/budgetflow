@@ -40,6 +40,7 @@ export const campaigns = pgTable('campaigns', {
   notes: text('notes'),
   meta_campaign_id: text('meta_campaign_id'),
   actual_spend: numeric('actual_spend').default('0'),
+  actual_spend_month: text('actual_spend_month'),
   last_synced_at: timestamp('last_synced_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

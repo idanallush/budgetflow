@@ -188,9 +188,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const existing = metaIdMap.get(mc.id)
 
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
       if (existing) {
         await db.update(campaigns).set({
           actual_spend: String(spend),
+          actual_spend_month: currentMonth,
           status,
           ad_link: adLink,
           last_synced_at: now,
@@ -208,6 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           campaign_type: mc.objective || null,
           meta_campaign_id: mc.id,
           actual_spend: String(spend),
+          actual_spend_month: currentMonth,
           ad_link: adLink,
           status,
           start_date: startDate,

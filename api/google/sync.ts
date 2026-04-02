@@ -201,11 +201,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const status = mapGoogleStatus(gc.status)
       const googleAdLink = `https://ads.google.com/aw/campaigns?campaignId=${gc.id}&ocid=${customerId}`
 
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
       const existing = googleIdMap.get(gc.id)
 
       if (existing) {
         await db.update(campaigns).set({
           actual_spend: String(spend),
+          actual_spend_month: currentMonth,
           status,
           ad_link: googleAdLink,
           last_synced_at: now,
@@ -222,6 +224,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           campaign_type: null,
           meta_campaign_id: gc.id,
           actual_spend: String(spend),
+          actual_spend_month: currentMonth,
           status,
           start_date: startDate,
           end_date: gc.endDate,

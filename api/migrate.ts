@@ -113,6 +113,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS last_synced_at timestamptz DEFAULT NULL`
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_meta_campaign_id ON campaigns(meta_campaign_id)`
 
+    // ── actual_spend_month tracking ──
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS actual_spend_month text DEFAULT NULL`
+
     // ── Google Ads fields ──
     await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_customer_id text DEFAULT NULL`
     await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_mcc_id text DEFAULT NULL`

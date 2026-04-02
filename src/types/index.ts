@@ -53,6 +53,7 @@ export interface Campaign {
   notes: string | null
   meta_campaign_id: string | null
   actual_spend: number
+  actual_spend_month: string | null
   last_synced_at: string | null
   created_at: string
 }

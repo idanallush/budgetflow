@@ -6,6 +6,17 @@ import type { Campaign, CampaignWithBudget, CampaignStatus, BudgetPeriod } from 
 
 const isDemoMode = () => !getToken()
 
+function getCurrentMonth(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function adjustStaleSpend(campaign: Campaign): Campaign {
+  const currentMonth = getCurrentMonth()
+  if (campaign.actual_spend_month === currentMonth) return campaign
+  return { ...campaign, actual_spend: 0 }
+}
+
 export const useCampaigns = (clientId: string) => {
   return useQuery({
     queryKey: ['campaigns', clientId],
@@ -14,7 +25,7 @@ export const useCampaigns = (clientId: string) => {
         const campaigns = demoCampaigns.filter((c) => c.client_id === clientId)
         return campaigns.map((campaign) => {
           const periods = demoBudgetPeriods.filter((p) => p.campaign_id === campaign.id)
-          return enrichCampaignWithBudget(campaign, periods)
+          return enrichCampaignWithBudget(adjustStaleSpend(campaign), periods)
         })
       }
 
@@ -29,7 +40,7 @@ export const useCampaigns = (clientId: string) => {
         const periods = data.budget_periods
           .filter((p) => p.campaign_id === campaign.id)
           .map((p) => ({ ...p, daily_budget: Number(p.daily_budget) }))
-        return enrichCampaignWithBudget(campaign, periods)
+        return enrichCampaignWithBudget(adjustStaleSpend(campaign), periods)
       })
     },
     enabled: !!clientId,
@@ -66,6 +77,7 @@ export const useCreateCampaign = () => {
           notes: input.notes ?? null,
           meta_campaign_id: null,
           actual_spend: 0,
+          actual_spend_month: null,
           last_synced_at: null,
           created_at: new Date().toISOString(),
         }

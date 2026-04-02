@@ -339,11 +339,22 @@ export const ClientView = () => {
 
         {/* Row 4: Footer */}
         <div className="flex items-center justify-between mt-3 pt-2">
-          {lastSyncedCampaign ? (
-            <span className="text-xs text-text-muted">
-              סנכרון אחרון: {formatDateTime(lastSyncedCampaign.last_synced_at!)}
-            </span>
-          ) : <span />}
+          {lastSyncedCampaign ? (() => {
+            const syncDate = new Date(lastSyncedCampaign.last_synced_at!)
+            const lastSyncMonth = `${syncDate.getFullYear()}-${String(syncDate.getMonth() + 1).padStart(2, '0')}`
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+            const isStaleSync = lastSyncMonth !== currentMonth
+            return (
+              <span className="text-xs text-text-muted">
+                סנכרון אחרון: {formatDateTime(lastSyncedCampaign.last_synced_at!)}
+                {isStaleSync && (
+                  <span className="text-xs text-warning ms-2">
+                    (נתוני הוצאה מחודש קודם — יש לסנכרן)
+                  </span>
+                )}
+              </span>
+            )
+          })() : <span />}
           {monthlyBudgetGoal && monthlyBudgetGoal > 0 && (() => {
             const diff = totalForecast - monthlyBudgetGoal
             const isOver = diff > 0
