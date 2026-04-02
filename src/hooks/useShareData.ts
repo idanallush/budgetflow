@@ -35,14 +35,10 @@ export const useShareData = (token: string) => {
 
         const enriched = enrichCampaignWithBudget(campaign, periods)
 
-        // Zero out stale actual_spend
-        if (enriched.actual_spend_month && enriched.actual_spend_month !== currentMonth) {
+        const spendMonth = campaign.actual_spend_month
+        if (Number(campaign.actual_spend) > 0 && (!spendMonth || spendMonth !== currentMonth)) {
           return { ...enriched, actual_spend: 0 }
         }
-        if (!enriched.actual_spend_month && Number(enriched.actual_spend) > 0) {
-          return { ...enriched, actual_spend: 0 }
-        }
-
         return enriched
       })
 

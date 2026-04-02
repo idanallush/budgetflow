@@ -196,12 +196,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let created = 0
     let updated = 0
 
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
     for (const [, gc] of campaignMap) {
       const spend = Math.round((gc.totalCostMicros / 1_000_000) * 100) / 100
       const status = mapGoogleStatus(gc.status)
       const googleAdLink = `https://ads.google.com/aw/campaigns?campaignId=${gc.id}&ocid=${customerId}`
 
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
       const existing = googleIdMap.get(gc.id)
 
       if (existing) {

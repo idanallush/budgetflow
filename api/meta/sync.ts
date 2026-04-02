@@ -181,14 +181,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let created = 0
     let updated = 0
 
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
     for (const mc of metaCampaigns) {
       const spend = spendMap.get(mc.id) ?? 0
       const status = mapMetaStatus(mc.status)
       const adLink = await fetchTopAdLink(mc.id, accountId, accessToken, monthStart, todayStr)
 
       const existing = metaIdMap.get(mc.id)
-
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
       if (existing) {
         await db.update(campaigns).set({
