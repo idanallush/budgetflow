@@ -6,26 +6,19 @@ import type { Campaign, CampaignWithBudget, CampaignStatus, BudgetPeriod } from 
 
 const isDemoMode = () => !getToken()
 
-function getCurrentMonth(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
-
-function adjustStaleSpend(campaign: Campaign): Campaign {
-  const currentMonth = getCurrentMonth()
-  if (campaign.actual_spend_month === currentMonth) return campaign
-  return { ...campaign, actual_spend: 0 }
-}
-
 export const useCampaigns = (clientId: string) => {
   return useQuery({
     queryKey: ['campaigns', clientId],
     queryFn: async (): Promise<CampaignWithBudget[]> => {
+      // Calculate current month string for stale spend check
+      const now = new Date()
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
       if (isDemoMode()) {
         const campaigns = demoCampaigns.filter((c) => c.client_id === clientId)
         return campaigns.map((campaign) => {
           const periods = demoBudgetPeriods.filter((p) => p.campaign_id === campaign.id)
-          return enrichCampaignWithBudget(adjustStaleSpend(campaign), periods)
+          return enrichCampaignWithBudget(campaign, periods)
         })
       }
 
@@ -40,7 +33,21 @@ export const useCampaigns = (clientId: string) => {
         const periods = data.budget_periods
           .filter((p) => p.campaign_id === campaign.id)
           .map((p) => ({ ...p, daily_budget: Number(p.daily_budget) }))
-        return enrichCampaignWithBudget(adjustStaleSpend(campaign), periods)
+
+        // FIRST enrich with budget data (forecast, daily budget, etc.)
+        const enriched = enrichCampaignWithBudget(campaign, periods)
+
+        // THEN only zero out actual_spend if it's from a different month
+        // This ONLY affects actual_spend — nothing else
+        if (enriched.actual_spend_month && enriched.actual_spend_month !== currentMonth) {
+          return { ...enriched, actual_spend: 0 }
+        }
+        if (!enriched.actual_spend_month && Number(enriched.actual_spend) > 0) {
+          // No month recorded but has spend — treat as stale
+          return { ...enriched, actual_spend: 0 }
+        }
+
+        return enriched
       })
     },
     enabled: !!clientId,
