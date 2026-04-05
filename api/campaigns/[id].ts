@@ -8,6 +8,7 @@ const statusLabels: Record<string, string> = {
   active: 'פעיל',
   paused: 'מושהה',
   stopped: 'הופסק',
+  scheduled: 'מתוזמן',
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

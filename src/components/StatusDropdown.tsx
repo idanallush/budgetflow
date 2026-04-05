@@ -9,11 +9,12 @@ interface StatusDropdownProps {
 
 const statusConfig: Record<CampaignStatus, { label: string; className: string }> = {
   active: { label: 'פעיל', className: 'status-active' },
+  scheduled: { label: 'מתוזמן', className: 'status-scheduled' },
   paused: { label: 'מושהה', className: 'status-paused' },
   stopped: { label: 'הופסק', className: 'status-stopped' },
 }
 
-const allStatuses: CampaignStatus[] = ['active', 'paused', 'stopped']
+const allStatuses: CampaignStatus[] = ['active', 'scheduled', 'paused', 'stopped']
 
 export const StatusDropdown = ({ status, onChange }: StatusDropdownProps) => {
   const [open, setOpen] = useState(false)

@@ -118,7 +118,7 @@ export const CampaignTable = ({
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [nameMode, setNameMode] = useState<'name' | 'technical'>('name')
-  const statusOrder: Record<string, number> = { active: 0, paused: 1, stopped: 2 }
+  const statusOrder: Record<string, number> = { active: 0, scheduled: 1, paused: 2, stopped: 3 }
   const platformCampaigns = campaigns
     .filter((c) => c.platform === platform)
     .sort((a, b) => (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3))

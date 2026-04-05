@@ -113,10 +113,23 @@ async function fetchTopAdLink(
   }
 }
 
-function mapMetaStatus(metaStatus: string): 'active' | 'paused' | 'stopped' {
+async function fetchScheduledCampaigns(adAccountId: string, accessToken: string): Promise<MetaCampaign[]> {
+  const url = `${META_BASE_URL}/${adAccountId}/campaigns?fields=id,name,status,objective,start_time,stop_time&filtering=[{"field":"effective_status","operator":"IN","value":["SCHEDULED"]}]&limit=500&access_token=${accessToken}`
+  const res = await fetch(url)
+  if (!res.ok) {
+    // Non-fatal: if this call fails, we still have activity-based campaigns
+    console.warn('Failed to fetch scheduled campaigns:', await res.text())
+    return []
+  }
+  const data = await res.json()
+  return data.data ?? []
+}
+
+function mapMetaStatus(metaStatus: string): 'active' | 'paused' | 'stopped' | 'scheduled' {
   switch (metaStatus) {
     case 'ACTIVE': return 'active'
     case 'PAUSED': return 'paused'
+    case 'SCHEDULED': return 'scheduled'
     default: return 'stopped'
   }
 }
@@ -155,7 +168,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (i) => Number(i.spend) > 0 || Number(i.impressions) > 0
     )
 
-    if (activeInsights.length === 0) {
+    const spendMap = new Map<string, number>()
+    for (const insight of activeInsights) {
+      spendMap.set(insight.campaign_id, Number(insight.spend) || 0)
+    }
+
+    // Fetch campaigns with activity (from insights)
+    const activeCampaignIds = activeInsights.map((i) => i.campaign_id)
+    let metaCampaigns: MetaCampaign[] = []
+    if (activeCampaignIds.length > 0) {
+      metaCampaigns = await fetchCampaignDetails(activeCampaignIds, accessToken)
+    }
+
+    // Also fetch SCHEDULED campaigns (no activity yet, so not in insights)
+    const scheduledCampaigns = await fetchScheduledCampaigns(accountId, accessToken)
+    const existingIds = new Set(metaCampaigns.map((c) => c.id))
+    for (const sc of scheduledCampaigns) {
+      if (!existingIds.has(sc.id)) {
+        metaCampaigns.push(sc)
+      }
+    }
+
+    if (metaCampaigns.length === 0) {
       return json(res, {
         success: true,
         ad_account_id: accountId,
@@ -163,17 +197,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created: 0,
         updated: 0,
         synced_at: now.toISOString(),
-        message: 'No campaigns with activity this month',
+        message: 'No campaigns with activity or scheduled this month',
       })
     }
-
-    const spendMap = new Map<string, number>()
-    for (const insight of activeInsights) {
-      spendMap.set(insight.campaign_id, Number(insight.spend) || 0)
-    }
-
-    const activeCampaignIds = activeInsights.map((i) => i.campaign_id)
-    const metaCampaigns = await fetchCampaignDetails(activeCampaignIds, accessToken)
 
     const existingCampaigns = await db.select().from(campaigns).where(eq(campaigns.client_id, client_id))
     const metaIdMap = new Map(existingCampaigns.filter(c => c.meta_campaign_id).map(c => [c.meta_campaign_id!, c]))

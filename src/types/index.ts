@@ -1,6 +1,6 @@
 export type Platform = 'facebook' | 'google'
 
-export type CampaignStatus = 'active' | 'paused' | 'stopped'
+export type CampaignStatus = 'active' | 'paused' | 'stopped' | 'scheduled'
 
 export type CampaignType =
   | 'Sales'

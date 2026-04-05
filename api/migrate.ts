@@ -116,6 +116,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── actual_spend_month tracking ──
     await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS actual_spend_month text DEFAULT NULL`
 
+    // ── Scheduled status support ──
+    await sql`ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_status_check`
+    await sql`ALTER TABLE campaigns ADD CONSTRAINT campaigns_status_check CHECK (status IN ('active', 'paused', 'stopped', 'scheduled'))`
+
     // ── Google Ads fields ──
     await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_customer_id text DEFAULT NULL`
     await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_mcc_id text DEFAULT NULL`

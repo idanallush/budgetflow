@@ -104,7 +104,7 @@ export const ClientView = () => {
         status,
         end_date: status === 'stopped' ? todayISO() : undefined,
       })
-      const labels: Record<CampaignStatus, string> = { active: 'פעיל', paused: 'מושהה', stopped: 'הופסק' }
+      const labels: Record<CampaignStatus, string> = { active: 'פעיל', paused: 'מושהה', stopped: 'הופסק', scheduled: 'מתוזמן' }
       toast.success(`סטטוס שונה ל${labels[status]}`)
     } catch {
       toast.error('שגיאה בשינוי סטטוס')
