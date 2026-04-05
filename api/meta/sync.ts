@@ -113,21 +113,28 @@ async function fetchTopAdLink(
   }
 }
 
-async function fetchScheduledCampaigns(adAccountId: string, accessToken: string): Promise<MetaCampaign[]> {
-  const url = `${META_BASE_URL}/${adAccountId}/campaigns?fields=id,name,status,objective,start_time,stop_time&filtering=[{"field":"effective_status","operator":"IN","value":["SCHEDULED"]}]&limit=500&access_token=${accessToken}`
+/**
+ * Fetch all ACTIVE campaigns from Meta — this catches campaigns that are
+ * "scheduled" (ACTIVE with a future start_time) as well as active campaigns
+ * that had zero spend/impressions this month (not in insights).
+ */
+async function fetchActiveCampaigns(adAccountId: string, accessToken: string): Promise<MetaCampaign[]> {
+  const url = `${META_BASE_URL}/${adAccountId}/campaigns?fields=id,name,status,objective,start_time,stop_time&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500&access_token=${accessToken}`
   const res = await fetch(url)
   if (!res.ok) {
-    // Non-fatal: if this call fails, we still have activity-based campaigns
-    console.warn('Failed to fetch scheduled campaigns:', await res.text())
+    console.warn('Failed to fetch active campaigns:', await res.text())
     return []
   }
   const data = await res.json()
   return data.data ?? []
 }
 
-function mapMetaStatus(metaStatus: string): 'active' | 'paused' | 'stopped' | 'scheduled' {
+function mapMetaStatus(metaStatus: string, startTime?: string): 'active' | 'paused' | 'stopped' | 'scheduled' {
   switch (metaStatus) {
-    case 'ACTIVE': return 'active'
+    case 'ACTIVE':
+      // Meta marks campaigns as ACTIVE even before start_time — detect "scheduled" by future start
+      if (startTime && new Date(startTime) > new Date()) return 'scheduled'
+      return 'active'
     case 'PAUSED': return 'paused'
     case 'SCHEDULED': return 'scheduled'
     default: return 'stopped'
@@ -180,12 +187,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       metaCampaigns = await fetchCampaignDetails(activeCampaignIds, accessToken)
     }
 
-    // Also fetch SCHEDULED campaigns (no activity yet, so not in insights)
-    const scheduledCampaigns = await fetchScheduledCampaigns(accountId, accessToken)
+    // Also fetch all ACTIVE campaigns — catches scheduled (future start_time) and zero-spend active
+    const activeCampaigns = await fetchActiveCampaigns(accountId, accessToken)
     const existingIds = new Set(metaCampaigns.map((c) => c.id))
-    for (const sc of scheduledCampaigns) {
-      if (!existingIds.has(sc.id)) {
-        metaCampaigns.push(sc)
+    for (const ac of activeCampaigns) {
+      if (!existingIds.has(ac.id)) {
+        metaCampaigns.push(ac)
       }
     }
 
@@ -197,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created: 0,
         updated: 0,
         synced_at: now.toISOString(),
-        message: 'No campaigns with activity or scheduled this month',
+        message: 'No campaigns with activity or active/scheduled this month',
       })
     }
 
@@ -211,7 +218,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (const mc of metaCampaigns) {
       const spend = spendMap.get(mc.id) ?? 0
-      const status = mapMetaStatus(mc.status)
+      const status = mapMetaStatus(mc.status, mc.start_time)
       const adLink = await fetchTopAdLink(mc.id, accountId, accessToken, monthStart, todayStr)
 
       const existing = metaIdMap.get(mc.id)
