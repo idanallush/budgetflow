@@ -42,8 +42,11 @@ BudgetFlow is a budget pacing and forecasting tool for Bright digital marketing 
 | slug | text unique | URL-friendly identifier |
 | share_token | text unique | Random token for client share link |
 | is_active | boolean | Active/archived |
-| created_at | timestamptz | Creation date |
 | notes | text | General notes |
+| meta_ad_account_id | text nullable | Meta Ad Account ID (e.g. act_123456) |
+| google_customer_id | text nullable | Google Ads customer ID |
+| google_mcc_id | text nullable | Google MCC ID |
+| created_at | timestamptz | Creation date |
 
 #### campaigns
 | Column | Type | Description |
@@ -55,10 +58,14 @@ BudgetFlow is a budget pacing and forecasting tool for Bright digital marketing 
 | platform | text CHECK('facebook','google') | Platform |
 | campaign_type | text | Sales, Awareness, Shopping, Brand, GDN, etc. |
 | ad_link | text | Link to ad preview |
-| status | text CHECK('active','paused','stopped') | Campaign status |
+| status | text CHECK('active','paused','stopped','scheduled') | Campaign status |
 | start_date | date | Campaign start date |
 | end_date | date nullable | Campaign end date (null = ongoing) |
 | notes | text | Campaign notes |
+| meta_campaign_id | text nullable | Meta campaign ID for sync |
+| actual_spend | numeric default 0 | Actual spend synced from Meta |
+| actual_spend_month | text nullable | Month of actual_spend (YYYY-MM) to detect stale data |
+| last_synced_at | timestamptz nullable | Last Meta sync timestamp |
 | created_at | timestamptz | Creation date |
 
 #### budget_periods
@@ -117,6 +124,7 @@ For each campaign in a given month:
 - Campaign stopped mid-month: only count days until stop date
 - Campaign started mid-month: only count from start date
 - Campaign paused: exclude paused days
+- Campaign scheduled: no forecast until start_date arrives (₪0 spend)
 - No budget change: simple daily × remaining days
 
 ### Forecast Metrics
@@ -224,7 +232,14 @@ For each campaign in a given month:
 - All UI text in Hebrew
 - Mobile-responsive but desktop-first (this is a work tool)
 - Platform icons: use Meta (Facebook) and Google icons/logos in campaign rows
-- Status colors: active=success green, paused=warning yellow, stopped=danger red — applied as subtle background tint on glass-card, not solid colors
+- Status colors: active=success green, paused=warning yellow, stopped=danger red, scheduled=indigo — applied as subtle background tint on glass-card, not solid colors
+
+### Meta Sync (`api/meta/sync.ts`)
+- Sync fetches campaigns from two sources: **Insights API** (campaigns with spend/impressions this month) + **Campaigns API** (all ACTIVE campaigns, to catch scheduled/zero-spend)
+- **Scheduled detection**: Meta API reports scheduled campaigns as `ACTIVE` with a future `start_time`, NOT as `SCHEDULED`. The sync detects this by comparing `start_time` to current date
+- Status mapping: `ACTIVE` + future start → `scheduled`, `ACTIVE` → `active`, `PAUSED` → `paused`, everything else → `stopped`
+- `actual_spend_month` tracks which month the spend data belongs to, preventing stale display on new month
+- After DB schema changes to the status CHECK constraint, run `POST /api/migrate` to apply
 
 ---
 
@@ -232,36 +247,40 @@ For each campaign in a given month:
 
 ```
 budgetflow/
+├── api/                           ← Vercel serverless functions
+│   ├── _lib/                      ← Shared backend: db.ts, schema.ts, api-helpers.ts
+│   ├── meta/
+│   │   └── sync.ts                ← Meta Ads sync (insights + scheduled detection)
+│   ├── campaigns/
+│   │   ├── index.ts               ← GET/POST campaigns
+│   │   └── [id].ts                ← PUT/DELETE single campaign
+│   ├── clients/                   ← Client CRUD
+│   ├── changelog/                 ← Changelog API
+│   ├── migrate.ts                 ← DB migration runner (POST /api/migrate)
+│   └── migrations/                ← SQL migration files
 ├── src/
-│   ├── app/
-│   │   ├── globals.css          ← design tokens + glass utility classes
-│   │   └── layout.tsx           ← <html lang="he" dir="rtl">, Heebo font
 │   ├── components/
-│   │   ├── ui/                  ← GlassPanel, GlassCard, Button, Input, Dialog, etc.
-│   │   ├── Dashboard.tsx
-│   │   ├── ClientView.tsx
+│   │   ├── ui/                    ← GlassPanel, GlassCard, StatusBadge, StatusDropdown, etc.
 │   │   ├── CampaignTable.tsx
 │   │   ├── CampaignModal.tsx
-│   │   ├── ChangelogPanel.tsx
+│   │   └── ...
+│   ├── pages/
+│   │   ├── Dashboard.tsx
+│   │   ├── ClientView.tsx
 │   │   └── ShareView.tsx
 │   ├── hooks/
-│   │   ├── useClients.ts
 │   │   ├── useCampaigns.ts
-│   │   ├── useBudgetPeriods.ts
-│   │   ├── useForecast.ts
-│   │   └── useChangelog.ts
+│   │   └── ...
 │   ├── lib/
-│   │   ├── supabase.ts          ← Supabase client init
-│   │   ├── forecast.ts          ← Budget calculation logic
-│   │   ├── format.ts            ← Currency, date formatting
-│   │   └── utils.ts
-│   └── types/
-│       └── index.ts             ← TypeScript interfaces
-├── supabase/
-│   └── migrations/              ← SQL migration files
+│   │   ├── api.ts                 ← API client
+│   │   ├── forecast.ts            ← Budget calculation logic
+│   │   └── format.ts              ← Currency, date formatting
+│   ├── types/
+│   │   └── index.ts               ← TypeScript interfaces
+│   └── globals.css                ← Design tokens + glass utility classes
 ├── public/
-├── CLAUDE.md                    ← this file
-├── DESIGN_SYSTEM.md             ← Glass Dark design system
+├── CLAUDE.md                      ← this file
+├── DESIGN_SYSTEM.md               ← Glass Dark design system
 ├── vercel.json
 └── package.json
 ```
@@ -286,6 +305,7 @@ budgetflow/
 - Campaign duplication
 
 ### Phase 3
-- Meta/Google API integration for actual spend
+- ~~Meta API integration for actual spend~~ ✓ Done — `api/meta/sync.ts`
 - Actual vs. forecast comparison
+- Google Ads API integration
 - Auto-detection of budget changes from API
