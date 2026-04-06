@@ -249,6 +249,46 @@ export const useUpdateCampaignStatus = () => {
   })
 }
 
+export const useRemoveFromPlan = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: {
+      campaign_id: string
+      client_id: string
+      effective_date: string
+    }) => {
+      if (isDemoMode()) {
+        const campaign = demoCampaigns.find((c) => c.id === input.campaign_id)
+        if (campaign) {
+          campaign.end_date = input.effective_date
+        }
+        const period = demoBudgetPeriods.find(
+          (p) => p.campaign_id === input.campaign_id && !p.end_date
+        )
+        if (period) {
+          period.end_date = input.effective_date
+        }
+        return
+      }
+
+      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'remove_from_plan',
+          effective_date: input.effective_date,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to remove from plan')
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', variables.client_id] })
+    },
+  })
+}
+
 export const useDeleteCampaign = () => {
   const queryClient = useQueryClient()
 

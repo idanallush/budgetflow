@@ -10,6 +10,7 @@ import { SkeletonCard } from '@/components/ui/Skeleton'
 import { CampaignTable, NoCampaignsState } from '@/components/CampaignTable'
 import { CampaignModal } from '@/components/CampaignModal'
 import { BudgetEditDialog } from '@/components/BudgetEditDialog'
+import { RemoveFromPlanDialog } from '@/components/RemoveFromPlanDialog'
 import { EndDateEditDialog } from '@/components/EndDateEditDialog'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -45,6 +46,7 @@ export const ClientView = () => {
   const [showClientChangelog, setShowClientChangelog] = useState(false)
   const [endDateCampaign, setEndDateCampaign] = useState<CampaignWithBudget | null>(null)
   const [deletingCampaign, setDeletingCampaign] = useState<CampaignWithBudget | null>(null)
+  const [removeFromPlanCampaign, setRemoveFromPlanCampaign] = useState<CampaignWithBudget | null>(null)
   const [showDeleteClient, setShowDeleteClient] = useState(false)
 
   // Monthly budget goal (persisted in localStorage per client+month)
@@ -387,6 +389,7 @@ export const ClientView = () => {
                 onStatusChange={handleStatusChange}
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
+                onRemoveFromPlan={setRemoveFromPlanCampaign}
               />
             )}
 
@@ -400,6 +403,7 @@ export const ClientView = () => {
                 onStatusChange={handleStatusChange}
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
+                onRemoveFromPlan={setRemoveFromPlanCampaign}
               />
             )}
 
@@ -453,6 +457,13 @@ export const ClientView = () => {
         open={!!endDateCampaign}
         onClose={() => setEndDateCampaign(null)}
         campaign={endDateCampaign}
+        clientId={client?.id ?? ''}
+      />
+
+      <RemoveFromPlanDialog
+        open={!!removeFromPlanCampaign}
+        onClose={() => setRemoveFromPlanCampaign(null)}
+        campaign={removeFromPlanCampaign}
         clientId={client?.id ?? ''}
       />
 

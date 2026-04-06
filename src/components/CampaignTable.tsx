@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle, Trash2, ExternalLink } from 'lucide-react'
+import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle, Trash2, ExternalLink, CalendarOff } from 'lucide-react'
 import type { CampaignWithBudget, Platform, CampaignStatus, ChangelogAction } from '@/types'
 import { useChangelog } from '@/hooks/useChangelog'
 import { StatusDropdown } from '@/components/StatusDropdown'
@@ -80,6 +80,7 @@ interface CampaignTableProps {
   onStatusChange: (campaignId: string, status: CampaignStatus) => void
   onEndDateEdit: (campaign: CampaignWithBudget) => void
   onDeleteCampaign: (campaign: CampaignWithBudget) => void
+  onRemoveFromPlan: (campaign: CampaignWithBudget) => void
 }
 
 const platformLabels: Record<Platform, string> = {
@@ -115,6 +116,7 @@ export const CampaignTable = ({
   onStatusChange,
   onEndDateEdit,
   onDeleteCampaign,
+  onRemoveFromPlan,
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [nameMode, setNameMode] = useState<'name' | 'technical'>('name')
@@ -287,6 +289,14 @@ export const CampaignTable = ({
                           title="עריכת קמפיין"
                         >
                           <Pencil size={14} />
+                        </Button>
+                        <Button
+                          variant="icon"
+                          className="!w-8 !h-8 hover:!text-warning"
+                          onClick={() => onRemoveFromPlan(campaign)}
+                          title="הוצאה מתוכנית התקציב"
+                        >
+                          <CalendarOff size={14} />
                         </Button>
                         <Button
                           variant="icon"

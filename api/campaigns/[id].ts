@@ -107,6 +107,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Remove from plan: close budget period + set end_date
+    if (body.action === 'remove_from_plan') {
+      const { effective_date } = body
+      if (!effective_date) return error(res, 'effective_date is required')
+      try {
+        // Close open budget periods at the effective date
+        await db.update(budgetPeriods).set({ end_date: effective_date }).where(
+          and(eq(budgetPeriods.campaign_id, id), isNull(budgetPeriods.end_date))
+        )
+
+        // Set campaign end_date
+        const [updated] = await db.update(campaigns).set({ end_date: effective_date }).where(eq(campaigns.id, id)).returning()
+        if (!updated) return error(res, 'Campaign not found', 404)
+
+        await db.insert(changelog).values({
+          campaign_id: id,
+          action: 'campaign_removed',
+          description: `קמפיין הוצא מתוכנית התקציב החל מ-${effective_date}`,
+          new_value: effective_date,
+          performed_by: user.name,
+        })
+
+        return json(res, updated)
+      } catch (err) {
+        console.error('Remove from plan error:', err)
+        return error(res, 'Internal server error', 500)
+      }
+    }
+
     // General update (campaign details)
     try {
       const [updated] = await db.update(campaigns).set(body).where(eq(campaigns.id, id)).returning()
