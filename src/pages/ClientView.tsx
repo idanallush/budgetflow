@@ -14,6 +14,7 @@ import { RemoveFromPlanDialog } from '@/components/RemoveFromPlanDialog'
 import { EndDateEditDialog } from '@/components/EndDateEditDialog'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { MonthProgressBar } from '@/components/MonthProgressBar'
 import { toast } from '@/components/ui/Toast'
 import { formatCurrency, formatDateTime, todayISO, getDaysInMonth } from '@/lib/format'
 import type { CampaignWithBudget, CampaignStatus } from '@/types'
@@ -314,15 +315,14 @@ export const ClientView = () => {
 
         {/* Row 3: Progress + Days */}
         <div className="flex items-center gap-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-text-muted">התקדמות החודש</span>
-              <span className="text-xs font-semibold">{monthProgress}%</span>
-            </div>
-            <div className="w-full h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-              <div className="h-1 rounded-full" style={{ width: `${monthProgress}%`, background: 'var(--color-accent)' }} />
-            </div>
-          </div>
+          <MonthProgressBar
+            daysInMonth={daysInMonth}
+            daysPassed={daysPassed}
+            monthProgress={monthProgress}
+            campaigns={campaigns ?? []}
+            year={now.getFullYear()}
+            month={now.getMonth()}
+          />
           <div className="flex items-center gap-4 text-xs text-text-secondary">
             <div className="text-center">
               <p className="font-semibold text-sm">{daysInMonth}</p>
