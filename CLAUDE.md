@@ -149,7 +149,8 @@ For each campaign in a given month:
 - Campaign table columns: name, current daily budget (inline editable), monthly forecast (auto), status indicator, ad link, notes, last change date
 - Summary row per platform: total daily, total monthly forecast, total original plan, variance
 - Grand total row: combined FB + Google
-- Actions: add campaign, edit campaign (modal), change budget, change status, view changelog (slide-out), copy share link
+- Actions: add campaign, edit campaign (modal), change budget, change status, remove from plan, view changelog (slide-out), copy share link
+- Monthly progress bar with budget change markers (dots on timeline with hover tooltips)
 
 ### 3. Campaign Edit Modal
 - Campaign name + technical name
@@ -214,6 +215,17 @@ For each campaign in a given month:
 4. Changelog entry created
 5. Forecast recalculates
 
+### Removing a Campaign from Budget Plan
+When a campaign is paused/stopped mid-month but the forecast still shows the full month:
+1. Click the CalendarOff icon (📅✕) in the campaign row actions
+2. `RemoveFromPlanDialog` opens with effective date (defaults to today)
+3. Shows preview of updated forecast based on chosen date
+4. On confirm: closes active `budget_period` (sets end_date) + sets campaign `end_date`
+5. Changelog entry: "קמפיין הוצא מתוכנית התקציב החל מ-DATE"
+6. Forecast recalculates to only include days up to the effective date
+- API action: `PUT /api/campaigns/:id` with `{ action: 'remove_from_plan', effective_date }`
+- Hook: `useRemoveFromPlan` in `useCampaigns.ts`
+
 ---
 
 ## Supabase RLS Policies
@@ -241,6 +253,10 @@ For each campaign in a given month:
 - `actual_spend_month` tracks which month the spend data belongs to, preventing stale display on new month
 - After DB schema changes to the status CHECK constraint, run `POST /api/migrate` to apply
 
+### Build & Deploy
+- Vercel build runs `tsc -b && vite build` — stricter than `tsc --noEmit` (fails on unused variables/imports)
+- Always verify with `npx tsc -b` locally before pushing, not just `tsc --noEmit`
+
 ---
 
 ## File Structure
@@ -253,7 +269,7 @@ budgetflow/
 │   │   └── sync.ts                ← Meta Ads sync (insights + scheduled detection)
 │   ├── campaigns/
 │   │   ├── index.ts               ← GET/POST campaigns
-│   │   └── [id].ts                ← PUT/DELETE single campaign
+│   │   └── [id].ts                ← PUT/DELETE single campaign (actions: budget, status, remove_from_plan)
 │   ├── clients/                   ← Client CRUD
 │   ├── changelog/                 ← Changelog API
 │   ├── migrate.ts                 ← DB migration runner (POST /api/migrate)
@@ -263,6 +279,8 @@ budgetflow/
 │   │   ├── ui/                    ← GlassPanel, GlassCard, StatusBadge, StatusDropdown, etc.
 │   │   ├── CampaignTable.tsx
 │   │   ├── CampaignModal.tsx
+│   │   ├── MonthProgressBar.tsx     ← Progress bar with budget change markers
+│   │   ├── RemoveFromPlanDialog.tsx  ← Remove campaign from budget plan
 │   │   └── ...
 │   ├── pages/
 │   │   ├── Dashboard.tsx
