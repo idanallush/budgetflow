@@ -12,7 +12,6 @@ interface BudgetEvent {
 
 interface MonthProgressBarProps {
   daysInMonth: number
-  daysPassed: number
   monthProgress: number
   campaigns: CampaignWithBudget[]
   year: number
@@ -33,7 +32,6 @@ const eventTypeDotColors: Record<string, string> = {
 
 export const MonthProgressBar = ({
   daysInMonth,
-  daysPassed,
   monthProgress,
   campaigns,
   year,

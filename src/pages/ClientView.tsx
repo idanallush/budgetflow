@@ -317,7 +317,6 @@ export const ClientView = () => {
         <div className="flex items-center gap-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <MonthProgressBar
             daysInMonth={daysInMonth}
-            daysPassed={daysPassed}
             monthProgress={monthProgress}
             campaigns={campaigns ?? []}
             year={now.getFullYear()}
