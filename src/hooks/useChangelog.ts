@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { demoChangelog } from '@/lib/demo-data'
-import { getAuthHeaders, getToken } from '@/hooks/useAuth'
+import { fetchWithAuth, getToken } from '@/hooks/useAuth'
 import type { ChangelogEntry } from '@/types'
 
 const isDemoMode = () => !getToken()
@@ -23,9 +23,7 @@ export const useChangelog = (campaignId?: string, clientId?: string) => {
         ? `campaign_id=${campaignId}`
         : `client_id=${clientId}`
 
-      const res = await fetch(`/api/changelog?${params}`, {
-        headers: getAuthHeaders(),
-      })
+      const res = await fetchWithAuth(`/api/changelog?${params}`)
       if (!res.ok) throw new Error('Failed to fetch changelog')
       return res.json()
     },

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { formatDateFull } from '@/lib/format'
-import { getAuthHeaders, getToken } from '@/hooks/useAuth'
+import { fetchWithAuth, getToken } from '@/hooks/useAuth'
 import { useQueryClient } from '@tanstack/react-query'
 import type { CampaignWithBudget } from '@/types'
 
@@ -34,9 +34,8 @@ export const EndDateEditDialog = ({ open, onClose, campaign, clientId }: EndDate
     try {
       const isDemoMode = !getToken()
       if (!isDemoMode) {
-        const res = await fetch(`/api/campaigns/${campaign.id}`, {
+        const res = await fetchWithAuth(`/api/campaigns/${campaign.id}`, {
           method: 'PUT',
-          headers: getAuthHeaders(),
           body: JSON.stringify({ end_date: endDate || null }),
         })
         if (!res.ok) throw new Error('Failed to update')

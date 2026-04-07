@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { demoCampaigns, demoBudgetPeriods } from '@/lib/demo-data'
 import { enrichCampaignWithBudget } from '@/lib/forecast'
-import { getAuthHeaders, getToken } from '@/hooks/useAuth'
+import { fetchWithAuth, getToken } from '@/hooks/useAuth'
 import type { Campaign, CampaignWithBudget, CampaignStatus, BudgetPeriod } from '@/types'
 
 const isDemoMode = () => !getToken()
@@ -18,9 +18,7 @@ export const useCampaigns = (clientId: string) => {
         })
       }
 
-      const res = await fetch(`/api/campaigns?client_id=${clientId}`, {
-        headers: getAuthHeaders(),
-      })
+      const res = await fetchWithAuth(`/api/campaigns?client_id=${clientId}`)
       if (!res.ok) throw new Error('Failed to fetch campaigns')
 
       const data = await res.json() as { campaigns: Campaign[]; budget_periods: BudgetPeriod[] }
@@ -93,9 +91,8 @@ export const useCreateCampaign = () => {
         return newCampaign
       }
 
-      const res = await fetch('/api/campaigns', {
+      const res = await fetchWithAuth('/api/campaigns', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(input),
       })
 
@@ -133,9 +130,8 @@ export const useUpdateCampaignDetails = () => {
         return
       }
 
-      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+      const res = await fetchWithAuth(`/api/campaigns/${input.campaign_id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: input.name,
           technical_name: input.technical_name,
@@ -186,9 +182,8 @@ export const useUpdateBudget = () => {
         return
       }
 
-      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+      const res = await fetchWithAuth(`/api/campaigns/${input.campaign_id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           action: 'budget',
           new_budget: input.new_budget,
@@ -231,9 +226,8 @@ export const useUpdateCampaignStatus = () => {
         return
       }
 
-      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+      const res = await fetchWithAuth(`/api/campaigns/${input.campaign_id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           action: 'status',
           status: input.status,
@@ -272,9 +266,8 @@ export const useRemoveFromPlan = () => {
         return
       }
 
-      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+      const res = await fetchWithAuth(`/api/campaigns/${input.campaign_id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           action: 'remove_from_plan',
           effective_date: input.effective_date,
@@ -300,9 +293,8 @@ export const useDeleteCampaign = () => {
         return
       }
 
-      const res = await fetch(`/api/campaigns/${input.campaign_id}`, {
+      const res = await fetchWithAuth(`/api/campaigns/${input.campaign_id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       })
 
       if (!res.ok) throw new Error('Failed to delete campaign')
@@ -318,9 +310,8 @@ export const useMetaSync = () => {
 
   return useMutation({
     mutationFn: async (input: { client_id: string; ad_account_id?: string }) => {
-      const res = await fetch('/api/meta/sync', {
+      const res = await fetchWithAuth('/api/meta/sync', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(input),
       })
       if (!res.ok) {
@@ -348,9 +339,8 @@ export const useGoogleSync = () => {
 
   return useMutation({
     mutationFn: async (input: { client_id: string; google_customer_id?: string; google_mcc_id?: string }) => {
-      const res = await fetch('/api/google/sync', {
+      const res = await fetchWithAuth('/api/google/sync', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(input),
       })
       if (!res.ok) {

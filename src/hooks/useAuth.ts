@@ -22,6 +22,25 @@ export const getAuthHeaders = (): Record<string, string> => {
     : { 'Content-Type': 'application/json' }
 }
 
+/**
+ * Fetch wrapper that auto-handles 401 (expired token).
+ * Clears auth state and redirects to login.
+ */
+export const fetchWithAuth = async (url: string, options?: RequestInit): Promise<Response> => {
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...getAuthHeaders(), ...options?.headers },
+  })
+
+  if (res.status === 401 && getToken()) {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+    window.dispatchEvent(new CustomEvent('auth:expired'))
+  }
+
+  return res
+}
+
 export const getStoredUser = (): AuthUser | null => {
   const raw = localStorage.getItem(USER_KEY)
   if (!raw) return null

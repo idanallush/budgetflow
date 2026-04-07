@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { demoClients } from '@/lib/demo-data'
 import { slugify, generateShareToken } from '@/lib/format'
-import { getAuthHeaders, getToken } from '@/hooks/useAuth'
+import { fetchWithAuth, getToken } from '@/hooks/useAuth'
 import type { Client } from '@/types'
 
 const isDemoMode = () => !getToken()
@@ -12,7 +12,7 @@ export const useClients = () => {
     queryFn: async (): Promise<Client[]> => {
       if (isDemoMode()) return demoClients
 
-      const res = await fetch('/api/clients', { headers: getAuthHeaders() })
+      const res = await fetchWithAuth('/api/clients')
       if (!res.ok) throw new Error('Failed to fetch clients')
       return res.json()
     },
@@ -25,7 +25,7 @@ export const useClient = (slug: string) => {
     queryFn: async (): Promise<Client | null> => {
       if (isDemoMode()) return demoClients.find((c) => c.slug === slug) ?? null
 
-      const res = await fetch(`/api/clients/${slug}`, { headers: getAuthHeaders() })
+      const res = await fetchWithAuth(`/api/clients/${slug}`)
       if (res.status === 404) return null
       if (!res.ok) throw new Error('Failed to fetch client')
       return res.json()
@@ -72,9 +72,8 @@ export const useCreateClient = () => {
         return newClient
       }
 
-      const res = await fetch('/api/clients', {
+      const res = await fetchWithAuth('/api/clients', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: input.name,
           slug: slugify(input.name),
@@ -103,9 +102,8 @@ export const useUpdateClient = () => {
         return client
       }
 
-      const res = await fetch(`/api/clients/${input.slug}`, {
+      const res = await fetchWithAuth(`/api/clients/${input.slug}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify(input),
       })
 
@@ -129,9 +127,8 @@ export const useDeleteClient = () => {
         return
       }
 
-      const res = await fetch(`/api/clients/${slug}`, {
+      const res = await fetchWithAuth(`/api/clients/${slug}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       })
 
       if (!res.ok) throw new Error('Failed to delete client')
