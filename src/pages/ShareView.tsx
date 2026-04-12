@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { ExternalLink, MessageSquare, Eye, EyeOff } from 'lucide-react'
-import { useShareData } from '@/hooks/useShareData'
+import { ExternalLink, MessageSquare, Eye, EyeOff, Check } from 'lucide-react'
+import { useShareData, useShareUpdateNotes } from '@/hooks/useShareData'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { PlatformIcon } from '@/components/ui/PlatformIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -14,14 +14,78 @@ const platformLabels: Record<Platform, string> = {
   google: 'Google Ads',
 }
 
+/* ── Editable notes cell ── */
+
+const EditableNotes = ({
+  campaignId,
+  initialNotes,
+  onSave,
+}: {
+  campaignId: string
+  initialNotes: string | null
+  onSave: (campaignId: string, notes: string) => void
+}) => {
+  const [value, setValue] = useState(initialNotes ?? '')
+  const [saved, setSaved] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  // Sync when data refreshes from server
+  useEffect(() => {
+    setValue(initialNotes ?? '')
+  }, [initialNotes])
+
+  const debouncedSave = useCallback(
+    (text: string) => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => {
+        onSave(campaignId, text)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      }, 800)
+    },
+    [campaignId, onSave]
+  )
+
+  const handleChange = (text: string) => {
+    setValue(text)
+    debouncedSave(text)
+  }
+
+  return (
+    <div className="relative min-w-[160px]">
+      <textarea
+        className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-lg px-2.5 py-2 text-xs text-text-secondary leading-[1.7] resize-none outline-none focus:border-accent focus:bg-[rgba(255,255,255,0.06)] transition-colors placeholder:text-text-muted min-h-[36px]"
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder="השאירו הערה..."
+        rows={1}
+        onInput={(e) => {
+          const el = e.currentTarget
+          el.style.height = 'auto'
+          el.style.height = el.scrollHeight + 'px'
+        }}
+      />
+      {saved && (
+        <span className="absolute top-1 end-1 text-success">
+          <Check size={12} />
+        </span>
+      )}
+    </div>
+  )
+}
+
+/* ── Share Table ── */
+
 const ShareTable = ({
   campaigns,
   platform,
   showActualSpend,
+  onNoteSave,
 }: {
   campaigns: CampaignWithBudget[]
   platform: Platform
   showActualSpend: boolean
+  onNoteSave: (campaignId: string, notes: string) => void
 }) => {
   const filtered = campaigns.filter((c) => c.platform === platform)
   if (filtered.length === 0) return null
@@ -47,9 +111,9 @@ const ShareTable = ({
               <th>צפי חודשי</th>
               {showActualSpend && <th>הוצאה בפועל</th>}
               <th>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <MessageSquare size={12} />
-                  הערות
+                  הערות לקוח
                 </div>
               </th>
               <th></th>
@@ -68,11 +132,11 @@ const ShareTable = ({
                   </td>
                 )}
                 <td>
-                  {campaign.notes ? (
-                    <span className="text-xs text-text-secondary leading-[1.6] block max-w-[200px]">{campaign.notes}</span>
-                  ) : (
-                    <span className="text-xs text-text-muted">—</span>
-                  )}
+                  <EditableNotes
+                    campaignId={campaign.id}
+                    initialNotes={campaign.notes}
+                    onSave={onNoteSave}
+                  />
                 </td>
                 <td>
                   {campaign.ad_link && (
@@ -111,6 +175,7 @@ const ShareTable = ({
 export const ShareView = () => {
   const { token } = useParams<{ token: string }>()
   const { data, isLoading } = useShareData(token ?? '')
+  const updateNotes = useShareUpdateNotes(token ?? '')
   const [showActualSpend, setShowActualSpend] = useState(false)
 
   const client = data?.client
@@ -120,6 +185,13 @@ export const ShareView = () => {
   const totalDaily = campaigns.reduce((sum, c) => sum + c.current_daily_budget, 0)
   const totalActualSpend = campaigns.reduce((sum, c) => sum + (Number(c.actual_spend) || 0), 0)
   const hasActualSpend = campaigns.some((c) => Number(c.actual_spend) > 0)
+
+  const handleNoteSave = useCallback(
+    (campaignId: string, notes: string) => {
+      updateNotes.mutate({ campaign_id: campaignId, notes })
+    },
+    [updateNotes]
+  )
 
   const now = new Date()
   const monthNames = [
@@ -139,7 +211,7 @@ export const ShareView = () => {
 
   return (
     <div className="min-h-screen p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -180,6 +252,14 @@ export const ShareView = () => {
           </div>
         )}
 
+        {/* Notes hint */}
+        <div className="flex items-center gap-2 mb-4 px-1">
+          <MessageSquare size={14} className="text-accent shrink-0" />
+          <span className="text-xs text-text-secondary">
+            ניתן להשאיר הערות לכל קמפיין — ההערות נשמרות אוטומטית
+          </span>
+        </div>
+
         {/* Tables */}
         <GlassPanel className="p-6 animate-enter">
           {isLoading ? (
@@ -189,8 +269,8 @@ export const ShareView = () => {
             </div>
           ) : (
             <>
-              <ShareTable campaigns={campaigns} platform="facebook" showActualSpend={showActualSpend} />
-              <ShareTable campaigns={campaigns} platform="google" showActualSpend={showActualSpend} />
+              <ShareTable campaigns={campaigns} platform="facebook" showActualSpend={showActualSpend} onNoteSave={handleNoteSave} />
+              <ShareTable campaigns={campaigns} platform="google" showActualSpend={showActualSpend} onNoteSave={handleNoteSave} />
 
               {campaigns.length > 0 && (
                 <div className="glass-card p-5 mt-2">
