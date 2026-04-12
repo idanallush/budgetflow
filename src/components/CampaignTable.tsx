@@ -81,6 +81,8 @@ interface CampaignTableProps {
   onEndDateEdit: (campaign: CampaignWithBudget) => void
   onDeleteCampaign: (campaign: CampaignWithBudget) => void
   onRemoveFromPlan: (campaign: CampaignWithBudget) => void
+  selectedIds?: Set<string>
+  onSelectionChange?: (ids: Set<string>) => void
 }
 
 const platformLabels: Record<Platform, string> = {
@@ -88,7 +90,7 @@ const platformLabels: Record<Platform, string> = {
   google: 'Google Ads',
 }
 
-const COL_COUNT = 8
+const COL_COUNT = 9
 
 const getEndDateUrgency = (endDate: string | null): 'expired' | 'soon' | 'ok' | null => {
   if (!endDate) return null
@@ -117,6 +119,8 @@ export const CampaignTable = ({
   onEndDateEdit,
   onDeleteCampaign,
   onRemoveFromPlan,
+  selectedIds,
+  onSelectionChange,
 }: CampaignTableProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [nameMode, setNameMode] = useState<'name' | 'technical'>('name')
@@ -134,6 +138,30 @@ export const CampaignTable = ({
       else next.add(id)
       return next
     })
+  }
+
+  const hasSelection = !!selectedIds && !!onSelectionChange
+  const platformIds = platformCampaigns.map(c => c.id)
+  const allSelected = hasSelection && platformIds.length > 0 && platformIds.every(id => selectedIds.has(id))
+  const someSelected = hasSelection && platformIds.some(id => selectedIds.has(id))
+
+  const toggleAll = () => {
+    if (!onSelectionChange || !selectedIds) return
+    const next = new Set(selectedIds)
+    if (allSelected) {
+      platformIds.forEach(id => next.delete(id))
+    } else {
+      platformIds.forEach(id => next.add(id))
+    }
+    onSelectionChange(next)
+  }
+
+  const toggleOne = (id: string) => {
+    if (!onSelectionChange || !selectedIds) return
+    const next = new Set(selectedIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onSelectionChange(next)
   }
 
   const totalDaily = platformCampaigns.reduce((sum, c) => sum + c.current_daily_budget, 0)
@@ -155,6 +183,17 @@ export const CampaignTable = ({
         <table className="glass-table">
           <thead>
             <tr>
+              {hasSelection && (
+                <th className="!w-10 !px-2">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
+                    onChange={toggleAll}
+                    className="accent-[#2563eb] w-3.5 h-3.5 cursor-pointer"
+                  />
+                </th>
+              )}
               <th>
                 <button
                   className="flex items-center gap-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer bg-transparent border-none p-0 text-xs font-medium uppercase tracking-wider"
@@ -179,7 +218,18 @@ export const CampaignTable = ({
               const isExpanded = expandedIds.has(campaign.id)
               return (
                 <>
-                  <tr key={campaign.id}>
+                  <tr key={campaign.id} className={hasSelection && selectedIds.has(campaign.id) ? 'bg-[rgba(37,99,235,0.08)]' : ''}>
+                    {/* Checkbox */}
+                    {hasSelection && (
+                      <td className="!w-10 !px-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(campaign.id)}
+                          onChange={() => toggleOne(campaign.id)}
+                          className="accent-[#2563eb] w-3.5 h-3.5 cursor-pointer"
+                        />
+                      </td>
+                    )}
                     {/* Campaign name + changes badge */}
                     <td>
                       <div className="flex flex-col min-w-0">
@@ -331,7 +381,7 @@ export const CampaignTable = ({
 
             {/* Summary row */}
             <tr className="summary-row">
-              <td colSpan={4}>סה״כ {platformLabels[platform]}</td>
+              <td colSpan={hasSelection ? 5 : 4}>סה״כ {platformLabels[platform]}</td>
               <td className="font-semibold">{formatCurrency(totalDaily)}</td>
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
               <td className="font-semibold">

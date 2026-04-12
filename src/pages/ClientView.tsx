@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, History, Copy, Check, X, Trash2, RefreshCw } from 'lucide-react'
-import { useClient, useDeleteClient } from '@/hooks/useClients'
-import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync, useGoogleSync } from '@/hooks/useCampaigns'
+import { ArrowRight, Plus, History, Copy, Check, X, Trash2, RefreshCw, Pencil, StickyNote } from 'lucide-react'
+import { useClient, useDeleteClient, useUpdateClient } from '@/hooks/useClients'
+import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync, useGoogleSync, useBulkAction } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { Button } from '@/components/ui/Button'
 import { MetricCard } from '@/components/ui/MetricCard'
@@ -14,6 +14,7 @@ import { RemoveFromPlanDialog } from '@/components/RemoveFromPlanDialog'
 import { EndDateEditDialog } from '@/components/EndDateEditDialog'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { BulkActionBar } from '@/components/BulkActionBar'
 import { MonthProgressBar } from '@/components/MonthProgressBar'
 import { toast } from '@/components/ui/Toast'
 import { formatCurrency, formatDateTime, todayISO, getDaysInMonth } from '@/lib/format'
@@ -49,6 +50,12 @@ export const ClientView = () => {
   const [deletingCampaign, setDeletingCampaign] = useState<CampaignWithBudget | null>(null)
   const [removeFromPlanCampaign, setRemoveFromPlanCampaign] = useState<CampaignWithBudget | null>(null)
   const [showDeleteClient, setShowDeleteClient] = useState(false)
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
+  const bulkAction = useBulkAction()
+  const updateClient = useUpdateClient()
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesInput, setNotesInput] = useState('')
 
   // Monthly budget goal (persisted in localStorage per client+month)
   const [monthlyBudgetGoal, setMonthlyBudgetGoal] = useState<number | null>(null)
@@ -192,6 +199,83 @@ export const ClientView = () => {
     }
   }
 
+  const handleBulkStatusChange = async (status: CampaignStatus) => {
+    if (!client || selectedCampaignIds.size === 0) return
+    try {
+      await bulkAction.mutateAsync({
+        ids: [...selectedCampaignIds],
+        action: 'status',
+        client_id: client.id,
+        status,
+        end_date: status === 'stopped' ? todayISO() : undefined,
+      })
+      const labels: Record<CampaignStatus, string> = { active: 'פעיל', paused: 'מושהה', stopped: 'הופסק', scheduled: 'מתוזמן' }
+      toast.success(`${selectedCampaignIds.size} קמפיינים שונו ל${labels[status]}`)
+      setSelectedCampaignIds(new Set())
+    } catch {
+      toast.error('שגיאה בשינוי סטטוס')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (!client || selectedCampaignIds.size === 0) return
+    try {
+      await bulkAction.mutateAsync({
+        ids: [...selectedCampaignIds],
+        action: 'delete',
+        client_id: client.id,
+      })
+      toast.success(`${selectedCampaignIds.size} קמפיינים נמחקו`)
+      setSelectedCampaignIds(new Set())
+      setShowBulkDeleteConfirm(false)
+    } catch {
+      toast.error('שגיאה במחיקה')
+    }
+  }
+
+  const handleBulkRemoveFromPlan = async () => {
+    if (!client || selectedCampaignIds.size === 0) return
+    try {
+      await bulkAction.mutateAsync({
+        ids: [...selectedCampaignIds],
+        action: 'remove_from_plan',
+        client_id: client.id,
+        effective_date: todayISO(),
+      })
+      toast.success(`${selectedCampaignIds.size} קמפיינים הוצאו מהתוכנית`)
+      setSelectedCampaignIds(new Set())
+    } catch {
+      toast.error('שגיאה בהוצאה מתוכנית')
+    }
+  }
+
+  const handleBulkUpdateAdLink = async (link: string) => {
+    if (!client || selectedCampaignIds.size === 0) return
+    try {
+      await bulkAction.mutateAsync({
+        ids: [...selectedCampaignIds],
+        action: 'update_ad_link',
+        client_id: client.id,
+        ad_link: link,
+      })
+      toast.success(`לינק עודכן ל-${selectedCampaignIds.size} קמפיינים`)
+      setSelectedCampaignIds(new Set())
+    } catch {
+      toast.error('שגיאה בעדכון לינק')
+    }
+  }
+
+  const handleSaveNotes = async () => {
+    if (!client) return
+    try {
+      await updateClient.mutateAsync({ id: client.id, slug: client.slug, notes: notesInput || undefined })
+      setEditingNotes(false)
+      toast.success('הערות נשמרו')
+    } catch {
+      toast.error('שגיאה בשמירת הערות')
+    }
+  }
+
   if (!isLoading && !client) {
     return (
       <GlassPanel className="p-8 text-center">
@@ -213,9 +297,6 @@ export const ClientView = () => {
             <h1 className="text-2xl font-semibold leading-tight">
               {client?.name ?? '...'}
             </h1>
-            {client?.notes && (
-              <p className="text-sm text-text-secondary mt-1">{client.notes}</p>
-            )}
           </div>
         </div>
 
@@ -367,6 +448,62 @@ export const ClientView = () => {
         </div>
       )}
 
+      {/* Client Notes */}
+      <GlassPanel className="p-5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <StickyNote size={16} className="text-text-muted" />
+            <span className="text-sm font-medium text-text-secondary">הערות לקוח</span>
+          </div>
+          {!editingNotes && (
+            <Button
+              variant="icon"
+              className="!w-7 !h-7"
+              onClick={() => {
+                setNotesInput(client?.notes ?? '')
+                setEditingNotes(true)
+              }}
+              title="עריכת הערות"
+            >
+              <Pencil size={13} />
+            </Button>
+          )}
+        </div>
+        {editingNotes ? (
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="glass-input w-full min-h-[80px] resize-y text-sm leading-[1.7]"
+              value={notesInput}
+              onChange={(e) => setNotesInput(e.target.value)}
+              placeholder="הוסף הערות ללקוח..."
+              autoFocus
+            />
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                variant="ghost"
+                className="!text-xs !py-1 !px-3"
+                onClick={() => setEditingNotes(false)}
+              >
+                <X size={14} />
+                ביטול
+              </Button>
+              <Button
+                className="!text-xs !py-1 !px-3"
+                onClick={handleSaveNotes}
+                disabled={updateClient.isPending}
+              >
+                <Check size={14} />
+                {updateClient.isPending ? 'שומר...' : 'שמור'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-text-secondary leading-[1.7] whitespace-pre-wrap">
+            {client?.notes || <span className="text-text-muted italic">אין הערות</span>}
+          </p>
+        )}
+      </GlassPanel>
+
       {/* Campaign Tables */}
       <GlassPanel className="p-6">
         {isLoading ? (
@@ -389,6 +526,8 @@ export const ClientView = () => {
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
                 onRemoveFromPlan={setRemoveFromPlanCampaign}
+                selectedIds={selectedCampaignIds}
+                onSelectionChange={setSelectedCampaignIds}
               />
             )}
 
@@ -403,6 +542,8 @@ export const ClientView = () => {
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
                 onRemoveFromPlan={setRemoveFromPlanCampaign}
+                selectedIds={selectedCampaignIds}
+                onSelectionChange={setSelectedCampaignIds}
               />
             )}
 
@@ -494,6 +635,26 @@ export const ClientView = () => {
         title="מחיקת לקוח"
         message={`האם למחוק את הלקוח "${client?.name}"? כל הקמפיינים, התקציבים וההיסטוריה יימחקו לצמיתות. פעולה זו בלתי הפיכה.`}
         isPending={deleteClient.isPending}
+      />
+
+      <ConfirmDialog
+        open={showBulkDeleteConfirm}
+        onClose={() => setShowBulkDeleteConfirm(false)}
+        onConfirm={handleBulkDelete}
+        title="מחיקת קמפיינים"
+        message={`האם למחוק ${selectedCampaignIds.size} קמפיינים? כל היסטוריית התקציבים והשינויים תימחק לצמיתות.`}
+        isPending={bulkAction.isPending}
+      />
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        count={selectedCampaignIds.size}
+        onClear={() => setSelectedCampaignIds(new Set())}
+        onStatusChange={handleBulkStatusChange}
+        onDelete={() => setShowBulkDeleteConfirm(true)}
+        onRemoveFromPlan={handleBulkRemoveFromPlan}
+        onUpdateAdLink={handleBulkUpdateAdLink}
+        isPending={bulkAction.isPending}
       />
     </div>
   )
