@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle, Trash2, ExternalLink, CalendarOff } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Pencil, Megaphone, ChevronDown, DollarSign, PlayCircle, PlusCircle, Trash2, ExternalLink, CalendarOff, MessageSquare, Check, X } from 'lucide-react'
 import type { CampaignWithBudget, Platform, CampaignStatus, ChangelogAction } from '@/types'
 import { useChangelog } from '@/hooks/useChangelog'
 import { StatusDropdown } from '@/components/StatusDropdown'
@@ -69,6 +69,60 @@ const ChangelogRow = ({ campaignId, colSpan }: { campaignId: string; colSpan: nu
   )
 }
 
+/* ── Inline campaign notes ── */
+
+const InlineNotes = ({ notes, onSave }: { notes: string | null; onSave: (val: string) => void }) => {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(notes ?? '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus()
+  }, [editing])
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 mt-0.5">
+        <input
+          ref={inputRef}
+          type="text"
+          className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-1.5 py-0.5 text-xs text-text-secondary w-full max-w-[200px] outline-none focus:border-accent"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { onSave(value); setEditing(false) }
+            if (e.key === 'Escape') { setValue(notes ?? ''); setEditing(false) }
+          }}
+          placeholder="הוסף הערה..."
+        />
+        <button className="btn-icon !w-5 !h-5 !text-success" onClick={() => { onSave(value); setEditing(false) }}>
+          <Check size={10} />
+        </button>
+        <button className="btn-icon !w-5 !h-5" onClick={() => { setValue(notes ?? ''); setEditing(false) }}>
+          <X size={10} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      className="flex items-center gap-1 mt-0.5 bg-transparent border-none p-0 cursor-pointer group"
+      onClick={() => setEditing(true)}
+      title={notes || 'הוסף הערה'}
+    >
+      {notes ? (
+        <span className="text-xs text-text-muted truncate max-w-[180px]">{notes}</span>
+      ) : (
+        <span className="text-xs text-text-muted opacity-0 group-hover:opacity-60 transition-opacity flex items-center gap-1">
+          <MessageSquare size={10} />
+          הערה
+        </span>
+      )}
+    </button>
+  )
+}
+
 /* ── Campaign Table ── */
 
 interface CampaignTableProps {
@@ -81,6 +135,7 @@ interface CampaignTableProps {
   onEndDateEdit: (campaign: CampaignWithBudget) => void
   onDeleteCampaign: (campaign: CampaignWithBudget) => void
   onRemoveFromPlan: (campaign: CampaignWithBudget) => void
+  onNotesUpdate?: (campaignId: string, notes: string) => void
   selectedIds?: Set<string>
   onSelectionChange?: (ids: Set<string>) => void
 }
@@ -119,6 +174,7 @@ export const CampaignTable = ({
   onEndDateEdit,
   onDeleteCampaign,
   onRemoveFromPlan,
+  onNotesUpdate,
   selectedIds,
   onSelectionChange,
 }: CampaignTableProps) => {
@@ -249,6 +305,12 @@ export const CampaignTable = ({
                         </div>
                         {nameMode === 'name' && campaign.campaign_type && (
                           <span className="text-xs text-text-muted">{campaign.campaign_type}</span>
+                        )}
+                        {onNotesUpdate && (
+                          <InlineNotes
+                            notes={campaign.notes}
+                            onSave={(val) => onNotesUpdate(campaign.id, val)}
+                          />
                         )}
                       </div>
                     </td>

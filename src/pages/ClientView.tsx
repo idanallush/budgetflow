@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, History, Copy, Check, X, Trash2, RefreshCw, Pencil, StickyNote } from 'lucide-react'
+import { ArrowRight, Plus, History, Copy, Check, X, Trash2, RefreshCw, Pencil, StickyNote, Clock } from 'lucide-react'
 import { useClient, useDeleteClient, useUpdateClient } from '@/hooks/useClients'
-import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useMetaSync, useGoogleSync, useBulkAction } from '@/hooks/useCampaigns'
+import { useCampaigns, useUpdateCampaignStatus, useUpdateCampaignDetails, useDeleteCampaign, useMetaSync, useGoogleSync, useBulkAction } from '@/hooks/useCampaigns'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { Button } from '@/components/ui/Button'
 import { MetricCard } from '@/components/ui/MetricCard'
@@ -38,6 +38,7 @@ export const ClientView = () => {
   const updateStatus = useUpdateCampaignStatus()
   const deleteCampaign = useDeleteCampaign()
   const deleteClient = useDeleteClient()
+  const updateCampaignDetails = useUpdateCampaignDetails()
   const metaSync = useMetaSync()
   const googleSync = useGoogleSync()
 
@@ -265,6 +266,26 @@ export const ClientView = () => {
     }
   }
 
+  const handleCampaignNotesUpdate = async (campaignId: string, notes: string) => {
+    if (!client) return
+    const campaign = campaigns?.find(c => c.id === campaignId)
+    if (!campaign) return
+    try {
+      await updateCampaignDetails.mutateAsync({
+        campaign_id: campaignId,
+        client_id: client.id,
+        name: campaign.name,
+        technical_name: campaign.technical_name,
+        campaign_type: campaign.campaign_type,
+        ad_link: campaign.ad_link,
+        notes: notes || null,
+      })
+      toast.success('הערה נשמרה')
+    } catch {
+      toast.error('שגיאה בשמירת הערה')
+    }
+  }
+
   const handleSaveNotes = async () => {
     if (!client) return
     try {
@@ -422,7 +443,8 @@ export const ClientView = () => {
         {/* Row 4: Footer */}
         <div className="flex items-center justify-between mt-3 pt-2">
           {lastSyncedCampaign ? (
-            <span className="text-xs text-text-muted">
+            <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary bg-[rgba(255,255,255,0.05)] rounded-lg px-2.5 py-1 border border-[rgba(255,255,255,0.06)]">
+              <Clock size={12} className="text-accent shrink-0" />
               סנכרון אחרון: {formatDateTime(lastSyncedCampaign.last_synced_at!)}
             </span>
           ) : <span />}
@@ -526,6 +548,7 @@ export const ClientView = () => {
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
                 onRemoveFromPlan={setRemoveFromPlanCampaign}
+                onNotesUpdate={handleCampaignNotesUpdate}
                 selectedIds={selectedCampaignIds}
                 onSelectionChange={setSelectedCampaignIds}
               />
@@ -542,6 +565,7 @@ export const ClientView = () => {
                 onEndDateEdit={setEndDateCampaign}
                 onDeleteCampaign={setDeletingCampaign}
                 onRemoveFromPlan={setRemoveFromPlanCampaign}
+                onNotesUpdate={handleCampaignNotesUpdate}
                 selectedIds={selectedCampaignIds}
                 onSelectionChange={setSelectedCampaignIds}
               />
