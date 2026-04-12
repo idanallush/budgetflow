@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, MessageSquare, Eye, EyeOff } from 'lucide-react'
 import { useShareData } from '@/hooks/useShareData'
 import { GlassPanel } from '@/components/ui/GlassPanel'
 import { PlatformIcon } from '@/components/ui/PlatformIcon'
@@ -46,6 +46,12 @@ const ShareTable = ({
               <th>תקציב יומי</th>
               <th>צפי חודשי</th>
               {showActualSpend && <th>הוצאה בפועל</th>}
+              <th>
+                <div className="flex items-center gap-1">
+                  <MessageSquare size={12} />
+                  הערות
+                </div>
+              </th>
               <th></th>
             </tr>
           </thead>
@@ -62,6 +68,13 @@ const ShareTable = ({
                   </td>
                 )}
                 <td>
+                  {campaign.notes ? (
+                    <span className="text-xs text-text-secondary leading-[1.6] block max-w-[200px]">{campaign.notes}</span>
+                  ) : (
+                    <span className="text-xs text-text-muted">—</span>
+                  )}
+                </td>
+                <td>
                   {campaign.ad_link && (
                     <a
                       href={campaign.ad_link}
@@ -77,8 +90,7 @@ const ShareTable = ({
               </tr>
             ))}
             <tr className="summary-row">
-              <td>סה״כ {platformLabels[platform]}</td>
-              <td></td>
+              <td colSpan={2}>סה״כ {platformLabels[platform]}</td>
               <td className="font-semibold">{formatCurrency(totalDaily)}</td>
               <td className="font-semibold">{formatCurrency(totalForecast)}</td>
               {showActualSpend && (
@@ -86,6 +98,7 @@ const ShareTable = ({
                   {totalActualSpend > 0 ? formatCurrency(totalActualSpend) : '—'}
                 </td>
               )}
+              <td></td>
               <td></td>
             </tr>
           </tbody>
@@ -155,11 +168,13 @@ export const ShareView = () => {
 
         {/* Actual spend toggle */}
         {hasActualSpend && (
-          <div className="flex items-center justify-end mb-4">
+          <div className="flex items-center justify-end gap-3 mb-4">
+            <span className="text-xs text-text-muted">נתוני הוצאה מסונכרנים מהפלטפורמות</span>
             <button
-              className={`chip text-sm cursor-pointer ${showActualSpend ? 'active' : ''}`}
+              className={`chip text-sm cursor-pointer inline-flex items-center gap-1.5 ${showActualSpend ? 'active' : ''}`}
               onClick={() => setShowActualSpend(!showActualSpend)}
             >
+              {showActualSpend ? <EyeOff size={13} /> : <Eye size={13} />}
               {showActualSpend ? 'הסתר הוצאה בפועל' : 'הצג הוצאה בפועל'}
             </button>
           </div>
