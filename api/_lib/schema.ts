@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, numeric, date, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, boolean, numeric, date, timestamp, integer, index } from 'drizzle-orm/pg-core'
 
 export const teamMembers = pgTable('team_members', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -61,6 +61,22 @@ export const budgetPeriods = pgTable('budget_periods', {
 }, (table) => [
   index('idx_budget_periods_campaign_id').on(table.campaign_id),
   index('idx_budget_periods_dates').on(table.start_date, table.end_date),
+])
+
+export const syncLogs = pgTable('sync_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  client_id: uuid('client_id').references(() => clients.id, { onDelete: 'cascade' }),
+  platform: text('platform').notNull(),
+  status: text('status').notNull(),
+  created_count: integer('created_count').notNull().default(0),
+  updated_count: integer('updated_count').notNull().default(0),
+  error: text('error'),
+  duration_ms: integer('duration_ms'),
+  triggered_by: text('triggered_by').notNull().default('manual'),
+  synced_at: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_sync_logs_client_id').on(table.client_id),
+  index('idx_sync_logs_synced_at').on(table.synced_at),
 ])
 
 export const changelog = pgTable('changelog', {

@@ -124,6 +124,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_customer_id text DEFAULT NULL`
     await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS google_mcc_id text DEFAULT NULL`
 
+    // ── Sync logs ──
+    await sql`
+      CREATE TABLE IF NOT EXISTS sync_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+        platform TEXT NOT NULL CHECK (platform IN ('meta', 'google')),
+        status TEXT NOT NULL CHECK (status IN ('success', 'error', 'skipped')),
+        created_count INTEGER NOT NULL DEFAULT 0,
+        updated_count INTEGER NOT NULL DEFAULT 0,
+        error TEXT,
+        duration_ms INTEGER,
+        triggered_by TEXT NOT NULL DEFAULT 'manual' CHECK (triggered_by IN ('manual', 'cron')),
+        synced_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `
+    await sql`CREATE INDEX IF NOT EXISTS idx_sync_logs_client_id ON sync_logs(client_id)`
+    await sql`CREATE INDEX IF NOT EXISTS idx_sync_logs_synced_at ON sync_logs(synced_at DESC)`
+
     return res.status(200).json({
       success: true,
       message: 'All migrations completed successfully',

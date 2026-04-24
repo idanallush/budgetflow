@@ -1,78 +1,32 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../_lib/db.js'
-import { clients } from '../_lib/schema.js'
+import { clients, syncLogs } from '../_lib/schema.js'
+import { syncMetaForClient } from '../_lib/meta-sync-core.js'
+import { syncGoogleForClient } from '../_lib/google-sync-core.js'
+
+export const config = { maxDuration: 300 }
+
+interface PlatformResult {
+  success: boolean
+  created?: number
+  updated?: number
+  error?: string
+  duration_ms: number
+}
 
 interface SyncResult {
   client_id: string
   client_name: string
-  meta?: { success: boolean; created?: number; updated?: number; error?: string }
-  google?: { success: boolean; created?: number; updated?: number; error?: string }
-}
-
-async function syncMeta(clientId: string, adAccountId: string): Promise<SyncResult['meta']> {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000'
-
-  try {
-    const res = await fetch(`${baseUrl}/api/meta/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId, ad_account_id: adAccountId }),
-    })
-
-    if (!res.ok) {
-      const text = await res.text()
-      return { success: false, error: text }
-    }
-
-    const data = await res.json() as { created: number; updated: number }
-    return { success: true, created: data.created, updated: data.updated }
-  } catch (err) {
-    return { success: false, error: (err as Error).message }
-  }
-}
-
-async function syncGoogle(
-  clientId: string,
-  googleCustomerId: string,
-  googleMccId: string | null
-): Promise<SyncResult['google']> {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000'
-
-  try {
-    const res = await fetch(`${baseUrl}/api/google/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: clientId,
-        google_customer_id: googleCustomerId,
-        google_mcc_id: googleMccId,
-      }),
-    })
-
-    if (!res.ok) {
-      const text = await res.text()
-      return { success: false, error: text }
-    }
-
-    const data = await res.json() as { created: number; updated: number }
-    return { success: true, created: data.created, updated: data.updated }
-  } catch (err) {
-    return { success: false, error: (err as Error).message }
-  }
+  meta?: PlatformResult
+  google?: PlatformResult
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Only allow GET (Vercel Cron sends GET requests)
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // Verify Vercel Cron secret
   const authHeader = req.headers['authorization']
   const cronSecret = process.env.CRON_SECRET
 
@@ -80,16 +34,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  try {
-    const db = getDb()
+  const db = getDb()
+  const runStartedAt = Date.now()
 
-    // Get all active clients
+  try {
     const activeClients = await db
       .select()
       .from(clients)
       .where(eq(clients.is_active, true))
 
     const results: SyncResult[] = []
+    const accessToken = process.env.FACEBOOK_ACCESS_TOKEN
 
     for (const client of activeClients) {
       const result: SyncResult = {
@@ -97,18 +52,100 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         client_name: client.name,
       }
 
-      // Meta sync
       if (client.meta_ad_account_id) {
-        result.meta = await syncMeta(client.id, client.meta_ad_account_id)
+        const startedAt = Date.now()
+        if (!accessToken) {
+          result.meta = {
+            success: false,
+            error: 'FACEBOOK_ACCESS_TOKEN not configured',
+            duration_ms: 0,
+          }
+          await db.insert(syncLogs).values({
+            client_id: client.id,
+            platform: 'meta',
+            status: 'error',
+            error: 'FACEBOOK_ACCESS_TOKEN not configured',
+            duration_ms: 0,
+            triggered_by: 'cron',
+          })
+        } else {
+          try {
+            const r = await syncMetaForClient(db, client.id, null, accessToken)
+            const duration_ms = Date.now() - startedAt
+            result.meta = {
+              success: true,
+              created: r.created,
+              updated: r.updated,
+              duration_ms,
+            }
+            await db.insert(syncLogs).values({
+              client_id: client.id,
+              platform: 'meta',
+              status: 'success',
+              created_count: r.created,
+              updated_count: r.updated,
+              duration_ms,
+              triggered_by: 'cron',
+            })
+          } catch (err) {
+            const duration_ms = Date.now() - startedAt
+            const message = (err as Error).message
+            console.error(`[cron] Meta sync failed for ${client.name}:`, err)
+            result.meta = { success: false, error: message, duration_ms }
+            try {
+              await db.insert(syncLogs).values({
+                client_id: client.id,
+                platform: 'meta',
+                status: 'error',
+                error: message,
+                duration_ms,
+                triggered_by: 'cron',
+              })
+            } catch (logErr) {
+              console.error('Failed to write sync log:', logErr)
+            }
+          }
+        }
       }
 
-      // Google sync
       if (client.google_customer_id) {
-        result.google = await syncGoogle(
-          client.id,
-          client.google_customer_id,
-          client.google_mcc_id
-        )
+        const startedAt = Date.now()
+        try {
+          const r = await syncGoogleForClient(db, client.id, null, null)
+          const duration_ms = Date.now() - startedAt
+          result.google = {
+            success: true,
+            created: r.created,
+            updated: r.updated,
+            duration_ms,
+          }
+          await db.insert(syncLogs).values({
+            client_id: client.id,
+            platform: 'google',
+            status: 'success',
+            created_count: r.created,
+            updated_count: r.updated,
+            duration_ms,
+            triggered_by: 'cron',
+          })
+        } catch (err) {
+          const duration_ms = Date.now() - startedAt
+          const message = (err as Error).message
+          console.error(`[cron] Google sync failed for ${client.name}:`, err)
+          result.google = { success: false, error: message, duration_ms }
+          try {
+            await db.insert(syncLogs).values({
+              client_id: client.id,
+              platform: 'google',
+              status: 'error',
+              error: message,
+              duration_ms,
+              triggered_by: 'cron',
+            })
+          } catch (logErr) {
+            console.error('Failed to write sync log:', logErr)
+          }
+        }
       }
 
       results.push(result)
@@ -126,6 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       meta_synced: metaSynced,
       google_synced: googleSynced,
       failed,
+      total_duration_ms: Date.now() - runStartedAt,
       results,
       synced_at: new Date().toISOString(),
     })
